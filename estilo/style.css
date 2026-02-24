@@ -1,0 +1,116 @@
+* {
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/*Fondo del sistema*/
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #526513, #06a388);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Color del formulario */
+.login-box {
+    background: rgb(48, 34, 34);
+    padding: 35px;
+    width: 100%;
+    max-width: 380px;
+    border-radius: 15px;
+    box-shadow: 0 12px 30px rgba(28, 26, 26, 0.25);
+}
+
+/* Titulo*/
+.login-box h1 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: #e9ecef;
+}
+
+/* Espacio entre los labels*/
+.form-group {
+    margin-bottom: 20px;
+}
+
+/*color de titulo usuario y contraseña*/
+label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: bold;
+    color: #ddd6d6;
+}
+
+
+input {
+    width: 100%;
+    padding: 11px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 15px;
+}
+
+input:focus {
+    outline: none;
+    border-color: #d9dde1;
+}
+
+/* Configuracion de contraseña */
+.password-box {
+    position: relative;
+}
+
+/* Configuracion de ver contraseña */
+.toggle-password {
+    position: absolute;
+    right: 17px;
+    top: 70%;
+    transform: translateY(-48%);
+    cursor: pointer;
+    font-size: 12px;
+    color: #767474;
+    font-weight: bold;
+    user-select: none;
+}
+
+
+/* Boton de ingresar */
+button {
+    width: 100%;
+    padding: 12px;
+    background: #15a9ca;
+    border: none;
+    color: white;
+    font-size: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+/* transicion de color cuando presionan ingresar*/
+button:hover {
+    background: #a6ba4b;
+}
+
+/*texto sistema institucional-viña*/
+.footer-text {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 13px;
+    color: #faf9f9;
+}
+
+/* Logo de viña */
+.logo-vina {
+    display: block;
+    margin: 0 auto 15px;
+    max-width: 260px;
+    width: 100%;
+}
+
+
+
+

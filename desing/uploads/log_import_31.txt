@@ -1,0 +1,7 @@
+Archivo ID: 31
+Insertados: 1390
+No encontrados (código no existe en empleados): 19
+Líneas inválidas: 0
+
+Códigos NO encontrados:
+- 10
