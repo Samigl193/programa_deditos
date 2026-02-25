@@ -86,23 +86,31 @@ $nombre_admin = isset($_SESSION['nombre']) ? $_SESSION['nombre'] : 'Administrado
             </div>
 
             <div class="card">
-                <h3> Permisos </h3>
-                <p>Auscencias, vacaciones, incapacidades, etc. </p>
-                <a href="situaciones.php">Gestionar</a>
+                <h3>Notificaciones </h3>
+                <p>Mensajeria y respuestas .</p>
+                <a href="empleados.php">Administrar</a>
             </div>
 
+
+             <div class="card">
+                <h3>Permisos</h3>
+                <p>Ausencias, vacaiones incapacidades, etc</p>
+                <a href="configuracion.php">Configurar</a>
+            </div>
+           
             <div class="card">
                 <h3>Configuración</h3>
                 <p>Ajustes del sistema y parámetros generales.</p>
                 <a href="configuracion.php">Configurar</a>
             </div>
 
-            <div class="card">
+             <div class="card">
                 <h3>Importar</h3>
-                <p>Carga de archivos biométricos al sistema.</p>
-                <a href="importar_archivo.php">Importar</a>
+                <p>Carga de archivos biometricos al sistema.</p>
+                <a href="configuracion.php">Configurar</a>
             </div>
 
+       
             <div class="card">
                 <h3>Horarios</h3>
                 <p>Gestión de turnos y jornadas laborales.</p>
