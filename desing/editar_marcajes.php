@@ -1,5 +1,6 @@
 <?php
 include("../desing/conexion.php");  
+session_start();
 
 // Activar manejo de excepciones para mysqli
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
@@ -15,6 +16,13 @@ if (isset($_GET['ids']) && !empty($_GET['ids'])) {
 // Obtener fechas de los parámetros GET o usar valores por defecto
 $fecha_inicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : date("Y-m-d", strtotime("-30 days"));
 $fecha_fin = isset($_GET['fecha_fin']) ? $_GET['fecha_fin'] : date("Y-m-d");
+
+// Mostrar mensaje de éxito si viene de guardado
+$mensaje = '';
+$error = '';
+if (isset($_GET['guardado']) && $_GET['guardado'] == 1) {
+    $mensaje = "✅ Cambios guardados correctamente. Los datos se han actualizado.";
+}
 
 // Construir parámetros para el enlace de reporte
 function construirUrlReporte($ids, $fecha_inicio, $fecha_fin) {
@@ -70,6 +78,20 @@ $conexion->query("CREATE TABLE IF NOT EXISTS personalizacion_situaciones (
     UNIQUE KEY (situacion_original)
 )");
 
+// Crear tabla para historial de cambios
+$conexion->query("CREATE TABLE IF NOT EXISTS historial_marcajes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_registro INT,
+    id_empleado INT NOT NULL,
+    fecha DATE NOT NULL,
+    hora_anterior TIME,
+    hora_nueva TIME,
+    fecha_cambio DATETIME DEFAULT CURRENT_TIMESTAMP,
+    usuario VARCHAR(100),
+    INDEX (id_registro),
+    INDEX (id_empleado, fecha)
+)");
+
 // Obtener personalizaciones de situaciones
 $personalizaciones = [];
 $result_pers = $conexion->query("SELECT * FROM personalizacion_situaciones");
@@ -77,7 +99,7 @@ while ($row = $result_pers->fetch_assoc()) {
     $personalizaciones[$row['situacion_original']] = $row;
 }
 
-//  FILTRAR personalizaciones para evitar duplicados
+// FILTRAR personalizaciones para evitar duplicados
 $personalizaciones_filtradas = [];
 foreach ($personalizaciones as $sit => $pers) {
     if (!isset($personalizaciones_filtradas[$sit])) {
@@ -86,23 +108,22 @@ foreach ($personalizaciones as $sit => $pers) {
 }
 $personalizaciones = $personalizaciones_filtradas;
 
-// Procesar guardado de cambios
-$mensaje = '';
-$error = '';
-
+// PROCESAR GUARDADO DE CAMBIOS
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_marcajes'])) {
     $conexion->begin_transaction();
     
     try {
-        // Actualizar marcajes existentes
+        $total_actualizados = 0;
+        $total_nuevos = 0;
+        $total_situaciones = 0;
+        
+        // 1️⃣ ACTUALIZAR MARCAJES EXISTENTES
         if (isset($_POST['marcajes']) && is_array($_POST['marcajes'])) {
-            foreach ($_POST['marcajes'] as $id_registro => $datos) {
-                foreach ($datos as $campo => $valor) {
-                    if (!empty($valor)) {
-                        $nuevo_valor = $valor . ':00';
-                        
-                        // Verificar que el registro existe
-                        $check_sql = "SELECT id_registro, id_empleado, fecha FROM registros_biometricos WHERE id_registro = ?";
+            foreach ($_POST['marcajes'] as $id_registro => $campos) {
+                foreach ($campos as $tipo => $hora_nueva) {
+                    if (!empty($hora_nueva)) {
+                        // Verificar que el registro existe y obtener datos actuales
+                        $check_sql = "SELECT id_registro, id_empleado, fecha, hora FROM registros_biometricos WHERE id_registro = ?";
                         $check_stmt = $conexion->prepare($check_sql);
                         $check_stmt->bind_param("i", $id_registro);
                         $check_stmt->execute();
@@ -110,26 +131,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_marcajes'])) 
                         
                         if ($check_result->num_rows > 0) {
                             $registro = $check_result->fetch_assoc();
+                            $hora_anterior = $registro['hora'];
                             
-                            // Verificar duplicados
-                            $dup_sql = "SELECT id_registro FROM registros_biometricos 
-                                       WHERE id_empleado = ? AND fecha = ? AND hora = ? 
-                                       AND id_registro != ?";
-                            $dup_stmt = $conexion->prepare($dup_sql);
-                            $dup_stmt->bind_param("issi", 
-                                $registro['id_empleado'], 
-                                $registro['fecha'], 
-                                $nuevo_valor,
-                                $id_registro
-                            );
-                            $dup_stmt->execute();
-                            $dup_result = $dup_stmt->get_result();
+                            // Formatear hora correctamente
+                            $hora_completa = $hora_nueva . ':00';
                             
-                            if ($dup_result->num_rows == 0) {
-                                $update_sql = "UPDATE registros_biometricos SET hora = ? WHERE id_registro = ?";
-                                $update_stmt = $conexion->prepare($update_sql);
-                                $update_stmt->bind_param("si", $nuevo_valor, $id_registro);
-                                $update_stmt->execute();
+                            // Solo actualizar si la hora es diferente
+                            if ($hora_anterior != $hora_completa) {
+                                // Verificar si ya existe un registro con misma hora para evitar duplicados
+                                $dup_sql = "SELECT id_registro FROM registros_biometricos 
+                                           WHERE id_empleado = ? AND fecha = ? AND hora = ? 
+                                           AND id_registro != ?";
+                                $dup_stmt = $conexion->prepare($dup_sql);
+                                $dup_stmt->bind_param("issi", 
+                                    $registro['id_empleado'], 
+                                    $registro['fecha'], 
+                                    $hora_completa,
+                                    $id_registro
+                                );
+                                $dup_stmt->execute();
+                                $dup_result = $dup_stmt->get_result();
+                                
+                                if ($dup_result->num_rows == 0) {
+                                    // Actualizar la hora
+                                    $update_sql = "UPDATE registros_biometricos SET hora = ? WHERE id_registro = ?";
+                                    $update_stmt = $conexion->prepare($update_sql);
+                                    $update_stmt->bind_param("si", $hora_completa, $id_registro);
+                                    $update_stmt->execute();
+                                    
+                                    // Guardar en historial
+                                    $historial_sql = "INSERT INTO historial_marcajes (id_registro, id_empleado, fecha, hora_anterior, hora_nueva, usuario) 
+                                                     VALUES (?, ?, ?, ?, ?, ?)";
+                                    $historial_stmt = $conexion->prepare($historial_sql);
+                                    $usuario = $_SESSION['usuario'] ?? 'sistema';
+                                    $historial_stmt->bind_param("iissss", 
+                                        $id_registro, 
+                                        $registro['id_empleado'], 
+                                        $registro['fecha'], 
+                                        $hora_anterior, 
+                                        $hora_completa, 
+                                        $usuario
+                                    );
+                                    $historial_stmt->execute();
+                                    
+                                    $total_actualizados++;
+                                }
                             }
                         }
                     }
@@ -137,14 +183,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_marcajes'])) 
             }
         }
         
-        // Agregar nuevos marcajes
+        // 2️⃣ AGREGAR NUEVOS MARCAJES
         if (isset($_POST['nuevos']) && is_array($_POST['nuevos'])) {
             foreach ($_POST['nuevos'] as $id_empleado => $fechas) {
-                foreach ($fechas as $fecha => $marcajes) {
-                    foreach ($marcajes as $tipo => $hora) {
+                foreach ($fechas as $fecha => $tipos) {
+                    foreach ($tipos as $tipo => $hora) {
                         if (!empty($hora)) {
                             $hora_completa = $hora . ':00';
                             
+                            // Verificar si ya existe este marcaje
                             $check_sql = "SELECT id_registro FROM registros_biometricos 
                                          WHERE id_empleado = ? AND fecha = ? AND hora = ?";
                             $check_stmt = $conexion->prepare($check_sql);
@@ -153,6 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_marcajes'])) 
                             $check_result = $check_stmt->get_result();
                             
                             if ($check_result->num_rows == 0) {
+                                // Insertar nuevo marcaje
                                 $insert_sql = "INSERT INTO registros_biometricos (id_empleado, fecha, hora, id_archivo) 
                                               VALUES (?, ?, ?, ?)";
                                 $insert_stmt = $conexion->prepare($insert_sql);
@@ -163,6 +211,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_marcajes'])) 
                                     $id_archivo_valido
                                 );
                                 $insert_stmt->execute();
+                                
+                                $total_nuevos++;
                             }
                         }
                     }
@@ -170,7 +220,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_marcajes'])) 
             }
         }
         
-        // Guardar situaciones
+        // 3️⃣ GUARDAR SITUACIONES
         if (isset($_POST['situaciones']) && is_array($_POST['situaciones'])) {
             foreach ($_POST['situaciones'] as $id_empleado => $fechas) {
                 foreach ($fechas as $fecha => $situacion) {
@@ -194,6 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_marcajes'])) 
                             $insert_stmt->bind_param("iss", $id_empleado, $fecha_mysql, $situacion);
                             $insert_stmt->execute();
                         }
+                        $total_situaciones++;
                     } else {
                         if ($check_result->num_rows > 0) {
                             $delete_sql = "DELETE FROM situaciones_marcajes WHERE id_empleado = ? AND fecha = ?";
@@ -206,30 +257,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_marcajes'])) 
             }
         }
         
-        // Guardar personalizaciones de situaciones (solo si hay cambios)
-        if (isset($_POST['personalizar_situacion']) && is_array($_POST['personalizar_situacion'])) {
-            foreach ($_POST['personalizar_situacion'] as $id_unico => $datos) {
-                $situacion_original = $conexion->real_escape_string($datos['situacion_original']);
-                $texto_personalizado = $conexion->real_escape_string($datos['texto_personalizado']);
-                $color_fondo = $conexion->real_escape_string($datos['color_fondo']);
-                $color_texto = $conexion->real_escape_string($datos['color_texto']);
-                
-                // Antes de insertar, eliminar cualquier duplicado existente
-                $conexion->query("DELETE FROM personalizacion_situaciones WHERE situacion_original = '$situacion_original'");
-                
-                // Insertar el nuevo registro
-                $conexion->query("INSERT INTO personalizacion_situaciones 
-                    (situacion_original, texto_personalizado, color_fondo, color_texto) 
-                    VALUES ('$situacion_original', '$texto_personalizado', '$color_fondo', '$color_texto')");
-            }
-        }
-        
         $conexion->commit();
-        $mensaje = " Marcajes, situaciones y personalizaciones actualizados correctamente";
+        
+        // Redirigir para evitar reenvío del formulario
+        $ids_param = implode(',', $ids);
+        header("Location: editar_marcajes.php?ids=$ids_param&fecha_inicio=$fecha_inicio&fecha_fin=$fecha_fin&guardado=1");
+        exit();
         
     } catch (Exception $e) {
         $conexion->rollback();
-        $error = "❌ Error: " . $e->getMessage();
+        $error = "❌ Error al guardar: " . $e->getMessage();
+        error_log("Error en editar_marcajes.php: " . $e->getMessage());
     }
 }
 
@@ -266,6 +304,7 @@ if (!empty($ids)) {
     }
 }
 
+// FUNCIÓN PARA DETERMINAR LA CLASE DEL MARCAJE SEGÚN LA HORA
 function determinarClaseMarcaje($tipo, $hora_str) {
     if (empty($hora_str)) {
         return "faltante";
@@ -275,25 +314,25 @@ function determinarClaseMarcaje($tipo, $hora_str) {
     
     if ($tipo == 'entrada_manana') {
         if ($hora < strtotime("07:00:00")) {
-            return "naranja";
+            return "naranja";      // Llegó antes de las 7:00
         } elseif ($hora >= strtotime("09:00:00")) {
-            return "tarde9";
+            return "tarde9";       // Llegó después de las 9:00
         } elseif ($hora > strtotime("08:00:00")) {
-            return "tarde";
+            return "tarde";        // Llegó después de las 8:00 (entre 8:01 y 8:59)
         }
     }
     
     if ($tipo == 'entrada_almuerzo') {
         if ($hora > strtotime("14:00:00")) {
-            return "tarde";
+            return "tarde";        // Regresó del almuerzo después de las 14:00
         }
     }
     
     if ($tipo == 'salida_final') {
         if ($hora > strtotime("18:00:00")) {
-            return "verde";
+            return "verde";        // Salió después de las 18:00 (hora extra)
         } elseif ($hora < strtotime("16:00:00")) {
-            return "morado";
+            return "morado";       // Salió antes de las 16:00
         }
     }
     
@@ -302,6 +341,9 @@ function determinarClaseMarcaje($tipo, $hora_str) {
 
 $marcajes_por_empleado = [];
 foreach ($ids as $id) {
+    // Forzar lectura de datos actualizados
+    $conexion->query("SET SESSION query_cache_type = OFF");
+    
     $sql = "SELECT rb.*, DATE(rb.fecha) as fecha_only, TIME(rb.hora) as hora_only
             FROM registros_biometricos rb
             WHERE rb.id_empleado = ? 
@@ -392,7 +434,6 @@ function obtenerTextoPersonalizado($situacion, $personalizaciones) {
 
 // Función para obtener los colores personalizados de una situación
 function obtenerColoresPersonalizados($situacion, $personalizaciones) {
-
     $colores_default = [
         'Permiso' => '#57df77',
         'Vacación' => '#cec12c',
@@ -402,20 +443,9 @@ function obtenerColoresPersonalizados($situacion, $personalizaciones) {
         'No se presentó' => '#ec7b7b'  
     ];
     
-    $colores_texto_default = [
-        'Permiso' => '#000000',
-        'Vacación' => '#000000',
-        'Enfermedad' => '#000000',
-        'Incapacidad' => '#000000',
-        'Día personal' => '#000000',
-        'No se presentó' => '#000000'  
-    ];
-    
     $color_fondo = $colores_default[$situacion] ?? '#ffffff';
-    $color_texto = $colores_texto_default[$situacion] ?? '#000000';
     $texto = $situacion;
     
-  
     if ($situacion === 'Vacación') {
         return [
             'color_fondo' => '#cec12c',
@@ -424,16 +454,14 @@ function obtenerColoresPersonalizados($situacion, $personalizaciones) {
         ];
     }
     
-    
     if (isset($personalizaciones[$situacion])) {
         $color_fondo = $personalizaciones[$situacion]['color_fondo'] ?? $color_fondo;
-        $color_texto = $personalizaciones[$situacion]['color_texto'] ?? $color_texto;
         $texto = $personalizaciones[$situacion]['texto_personalizado'] ?? $texto;
     }
     
     return [
         'color_fondo' => $color_fondo,
-        'color_texto' => $color_texto,
+        'color_texto' => '#000000',
         'texto_personalizado' => $texto
     ];
 }
@@ -457,15 +485,6 @@ $situaciones_predefinidas = [
     'Incapacidad',
     'Día personal',
     'No se presentó'
-];
-
-$iconos_situacion = [
-    'Permiso' => '',
-    'Vacación' => '',
-    'Enfermedad' => '',
-    'Incapacidad' => '',
-    'Día personal' => '',
-    'No se presentó' => ''
 ];
 ?>
 <!DOCTYPE html>
@@ -541,7 +560,7 @@ $iconos_situacion = [
         }
 
         .botones-fijos:hover .boton-minimal {
-            width: 160px;
+            width: 180px;
             padding-right: 15px;
         }
 
@@ -1115,7 +1134,6 @@ $iconos_situacion = [
         }
     </style>
     <?php 
-
     $situaciones_para_estilos = [
         'Permiso' => '#57df77',
         'Vacación' => '#cec12c',
@@ -1125,28 +1143,17 @@ $iconos_situacion = [
         'No se presentó' => '#ec7b7b'  
     ];
     
-    $textos_fijos = [
-        'Permiso' => '#000000',
-        'Vacación' => '#000000',
-        'Enfermedad' => '#000000',
-        'Incapacidad' => '#000000',
-        'Día personal' => '#000000',
-        'No se presentó' => '#000000'
-    ];
-    
     foreach ($situaciones_para_estilos as $sit => $color): 
     ?>
     <style>
-
-
         .opcion-situacion[data-situacion="<?= $sit ?>"] {
             background-color: <?= $color ?> !important;
-            color: <?= $textos_fijos[$sit] ?> !important;
+            color: #000000 !important;
         }
         
         .situacion-actual[data-situacion="<?= $sit ?>"] {
             background-color: <?= $color ?> !important;
-            color: <?= $textos_fijos[$sit] ?> !important;
+            color: #000000 !important;
         }
         
         .color-box[data-situacion="<?= $sit ?>"] {
@@ -1226,16 +1233,13 @@ $iconos_situacion = [
                 <span style="color: #000000;">Salió antes</span>
             </div>
             <?php 
-
-
             foreach ($situaciones_predefinidas as $sit): 
                 $colores = obtenerColoresPersonalizados($sit, $personalizaciones);
                 $texto = obtenerTextoPersonalizado($sit, $personalizaciones);
-                $color_texto_leyenda = '#000000';
             ?>
             <div class="leyenda-item">
                 <span class="color-box" data-situacion="<?= $sit ?>" style="background: <?= $colores['color_fondo'] ?>;"></span>
-                <span style="color: <?= $color_texto_leyenda ?>; font-weight: 500;"><?= $texto ?></span>
+                <span style="color: #000000; font-weight: 500;"><?= $texto ?></span>
             </div>
             <?php endforeach; ?>
         </div>
@@ -1317,18 +1321,16 @@ $iconos_situacion = [
                     </div>
                     
                     <?php 
-
                     foreach ($situaciones_predefinidas as $sit): 
                         $colores = obtenerColoresPersonalizados($sit, $personalizaciones);
                         $texto = obtenerTextoPersonalizado($sit, $personalizaciones);
-                        $color_texto_modal = '#000000';
                     ?>
                     <div class="opcion-situacion" 
                          data-situacion="<?= $sit ?>"
                          data-color-fondo="<?= $colores['color_fondo'] ?>"
-                         data-color-texto="<?= $color_texto_modal ?>"
+                         data-color-texto="#000000"
                          onclick="seleccionarSituacion('<?= $sit ?>', this)"
-                         style="background-color: <?= $colores['color_fondo'] ?>; color: <?= $color_texto_modal ?>;">
+                         style="background-color: <?= $colores['color_fondo'] ?>; color: #000000;">
                         <?= $texto ?>
                     </div>
                     <?php endforeach; ?>
@@ -1487,7 +1489,6 @@ $iconos_situacion = [
                 
                 html += `<td><input type="time" name="${nombreEntrada}" value="${valorEntrada}" class="input-hora ${claseEntrada}" data-tipo="entrada_manana"></td>`;
                 
-                // Salida Almuerzo
                 const salidaAlmuerzo = marcajesDia?.salida_almuerzo;
                 const claseSalidaAlm = salidaAlmuerzo ? determinarClase('salida_almuerzo', salidaAlmuerzo.hora_only) : '';
                 const nombreSalidaAlm = salidaAlmuerzo ? 
@@ -1497,7 +1498,6 @@ $iconos_situacion = [
                 
                 html += `<td><input type="time" name="${nombreSalidaAlm}" value="${valorSalidaAlm}" class="input-hora ${claseSalidaAlm}" data-tipo="salida_almuerzo"></td>`;
                 
-                // Entrada Almuerzo
                 const entradaAlmuerzo = marcajesDia?.entrada_almuerzo;
                 const claseEntradaAlm = entradaAlmuerzo ? determinarClase('entrada_almuerzo', entradaAlmuerzo.hora_only) : '';
                 const nombreEntradaAlm = entradaAlmuerzo ? 
@@ -1507,7 +1507,6 @@ $iconos_situacion = [
                 
                 html += `<td><input type="time" name="${nombreEntradaAlm}" value="${valorEntradaAlm}" class="input-hora ${claseEntradaAlm}" data-tipo="entrada_almuerzo"></td>`;
                 
-                // Salida Final
                 const salidaFinal = marcajesDia?.salida_final;
                 const claseSalidaFin = salidaFinal ? determinarClase('salida_final', salidaFinal.hora_only) : '';
                 const nombreSalidaFin = salidaFinal ? 
@@ -1517,7 +1516,6 @@ $iconos_situacion = [
                 
                 html += `<td><input type="time" name="${nombreSalidaFin}" value="${valorSalidaFin}" class="input-hora ${claseSalidaFin}" data-tipo="salida_final"></td>`;
                 
-                // Botón de situación
                 html += `<td>`;
                 if (situacionDia) {
                     const colores = obtenerColoresPersonalizados(situacionDia, personalizaciones);
@@ -1544,17 +1542,15 @@ $iconos_situacion = [
             idEmpleadoSeleccionado = idEmpleado;
             
             const fila = document.querySelector(`tr[data-fecha="${fecha}"][data-id-empleado="${idEmpleado}"]`);
-            const situacionActual = fila.dataset.situacion || '';
+            const situacionActual = fila ? fila.dataset.situacion : '';
             
             document.getElementById('modalFecha').value = fecha;
             document.getElementById('modalIdEmpleado').value = idEmpleado;
             
-            // Resetear selección
             document.querySelectorAll('.opcion-situacion').forEach(opt => {
                 opt.classList.remove('selected');
             });
             
-            // Si hay situación actual, seleccionarla
             if (situacionActual) {
                 const opcion = document.querySelector(`.opcion-situacion[data-situacion="${situacionActual}"]`);
                 if (opcion) {
@@ -1571,23 +1567,19 @@ $iconos_situacion = [
         }
 
         function seleccionarSituacion(situacion, elemento) {
-            // Remover selección anterior
             document.querySelectorAll('.opcion-situacion').forEach(opt => {
                 opt.classList.remove('selected');
             });
             
-            // Marcar la nueva selección
             elemento.classList.add('selected');
             situacionSeleccionada = situacion;
         }
 
         function seleccionarNinguno(elemento) {
-            // Remover selección anterior
             document.querySelectorAll('.opcion-situacion').forEach(opt => {
                 opt.classList.remove('selected');
             });
             
-            // Marcar ninguno
             elemento.classList.add('selected');
             situacionSeleccionada = '';
         }
@@ -1596,11 +1588,9 @@ $iconos_situacion = [
             const fecha = fechaSeleccionada;
             const idEmpleado = idEmpleadoSeleccionado;
             
-            // Eliminar input anterior si existe
             const inputsAnteriores = document.querySelectorAll(`input[name="situaciones[${idEmpleado}][${fecha}]"]`);
             inputsAnteriores.forEach(input => input.remove());
             
-            // Si hay situación seleccionada (no es ninguno), crear input
             if (situacionSeleccionada) {
                 const inputSituacion = document.createElement('input');
                 inputSituacion.type = 'hidden';
@@ -1609,24 +1599,20 @@ $iconos_situacion = [
                 document.getElementById('inputs-ocultos').appendChild(inputSituacion);
             }
             
-            // Actualizar la fila en la tabla
             const fila = document.querySelector(`tr[data-fecha="${fecha}"][data-id-empleado="${idEmpleado}"]`);
             if (fila) {
                 fila.dataset.situacion = situacionSeleccionada;
                 
-                // Remover estilos y clases
                 fila.style.backgroundColor = '';
                 fila.style.color = '';
                 fila.classList.remove('fila-sin-marcajes');
                 
-                // Verificar si tiene marcajes
                 const inputsHora = fila.querySelectorAll('input[type="time"]');
                 let tieneAlgunMarcaje = false;
                 inputsHora.forEach(input => {
                     if (input.value) tieneAlgunMarcaje = true;
                 });
                 
-                // Aplicar nuevos colores si hay situación seleccionada
                 if (situacionSeleccionada) {
                     const colores = obtenerColoresPersonalizados(situacionSeleccionada, personalizaciones);
                     fila.style.backgroundColor = colores.color_fondo;
@@ -1635,7 +1621,6 @@ $iconos_situacion = [
                     fila.classList.add('fila-sin-marcajes');
                 }
                 
-                // Actualizar el contenido de la celda
                 const btnCell = fila.lastElementChild;
                 
                 btnCell.innerHTML = '';
@@ -1712,7 +1697,6 @@ $iconos_situacion = [
             }
         });
 
-        // Cerrar modal al hacer clic fuera
         window.onclick = function(event) {
             const modal = document.getElementById('modalSituacion');
             if (event.target == modal) {
@@ -1720,7 +1704,6 @@ $iconos_situacion = [
             }
         }
 
-        // Antes de enviar el formulario
         document.getElementById('form-marcajes')?.addEventListener('submit', function(e) {
             const inputsFaltantes = document.querySelectorAll('.input-hora.faltante');
             if (inputsFaltantes.length > 0) {

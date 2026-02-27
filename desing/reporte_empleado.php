@@ -1,6 +1,18 @@
 <?php 
 include("../desing/conexion.php");
 
+// Función para verificar si una fecha tiene marcajes modificados manualmente
+function tieneMarcajesModificados($id_empleado, $fecha, $conexion) {
+    $sql = "SELECT COUNT(*) as total FROM registros_biometricos 
+            WHERE id_empleado = ? AND fecha = ? AND id_archivo = 1";
+    $stmt = $conexion->prepare($sql);
+    $stmt->bind_param("is", $id_empleado, $fecha);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    return $row['total'] > 0;
+}
+
 // Obtener personalizaciones de situaciones
 $personalizaciones = [];
 $result_pers = $conexion->query("SELECT * FROM personalizacion_situaciones");
@@ -8,7 +20,7 @@ while ($row = $result_pers->fetch_assoc()) {
     $personalizaciones[$row['situacion_original']] = $row;
 }
 
-// Situaciones predefinidas - CON "NO SE PRESENTÓ" INCLUIDO
+// Situaciones predefinidas
 $situaciones_predefinidas = [
     'Permiso',
     'Vacación',
@@ -18,9 +30,8 @@ $situaciones_predefinidas = [
     'No se presentó' 
 ];
 
-// Función para obtener los colores de una situación 
+// Función para obtener el color de una situación
 function obtenerColorSituacion($situacion, $personalizaciones) {
-    
     if ($situacion === 'Permiso') {
         return '#57df77';
     }
@@ -29,20 +40,19 @@ function obtenerColorSituacion($situacion, $personalizaciones) {
         return $personalizaciones[$situacion]['color_fondo'];
     }
     
-    
     $colores_default = [
-        'Permiso' => '#57df77',      // Verde claro
-        'Vacación' => '#cec12c',      // Amarillo claro
-        'Enfermedad' => '#cb1052',    // Rojo claro
-        'Incapacidad' => '#b727ab',   // Morado
-        'Día personal' => '#12beb8',  // Turquesa
-        'No se presentó' => '#ec7b7b' // Rojo claro / Rosado
+        'Permiso' => '#57df77',
+        'Vacación' => '#cec12c',
+        'Enfermedad' => '#cb1052',
+        'Incapacidad' => '#b727ab',
+        'Día personal' => '#12beb8',
+        'No se presentó' => '#ec7b7b'
     ];
     
     return $colores_default[$situacion] ?? '#ffffff';
 }
 
-// Función para obtener color de texto negro
+// Función para obtener color de texto (siempre negro)
 function obtenerColorTextoSituacion($situacion, $personalizaciones) {
     return '#000000';
 }
@@ -99,10 +109,17 @@ function calcular_dias_laborables($fecha_inicio, $fecha_fin) {
     return ['total' => $dias_laborables, 'fechas' => $fechas_laborables];
 }
 
-function obtenerDiaCorto($fecha) {
+// FUNCIÓN MODIFICADA: Ahora devuelve el nombre completo del día
+function obtenerDiaCompleto($fecha) {
     $dia_numero = date('N', strtotime($fecha));
-    $dias = ['L', 'M', 'M', 'J', 'V'];
-    return $dias[$dia_numero - 1];
+    $dias = [
+        1 => 'Lunes',
+        2 => 'Martes', 
+        3 => 'Miércoles',
+        4 => 'Jueves',
+        5 => 'Viernes'
+    ];
+    return $dias[$dia_numero];
 }
 
 function formatearFechaMes($fecha) {
@@ -146,6 +163,8 @@ function calcular_promedio($arr) {
 }
 
 function procesarRegistrosEmpleado($id_empleado, $conexion, $fecha_inicio, $fecha_fin) {
+    $conexion->query("SET SESSION query_cache_type = OFF");
+    
     $sqlReg = "
     SELECT *
     FROM registros_biometricos
@@ -283,6 +302,7 @@ function obtenerDatosEmpleado($id_empleado, $conexion, $fecha_inicio, $fecha_fin
     $labels = [];
     $gEntrada = $gSalidaAlm = $gEntradaAlm = $gSalidaFin = [];
     $situaciones = [];
+    $marcajesEditados = [];
     
     if($mostrar){
         $regs = procesarRegistrosEmpleado($id_empleado, $conexion, $fecha_inicio, $fecha_fin);
@@ -291,6 +311,11 @@ function obtenerDatosEmpleado($id_empleado, $conexion, $fecha_inicio, $fecha_fin
         $porDia = $clasificados['porDia'];
         $totalMarcajes = $clasificados['totalMarcajes'];
         $diasTrabajados = count($clasificados['dias']);
+        
+        // Verificar qué días tienen marcajes editados
+        foreach (array_keys($porDia) as $fecha) {
+            $marcajesEditados[$fecha] = tieneMarcajesModificados($id_empleado, $fecha, $conexion);
+        }
         
         $situaciones = obtenerSituacionesEmpleado($id_empleado, $conexion, $fecha_inicio, $fecha_fin);
         
@@ -316,7 +341,8 @@ function obtenerDatosEmpleado($id_empleado, $conexion, $fecha_inicio, $fecha_fin
         'gSalidaAlm' => $gSalidaAlm,
         'gEntradaAlm' => $gEntradaAlm,
         'gSalidaFin' => $gSalidaFin,
-        'situaciones' => $situaciones
+        'situaciones' => $situaciones,
+        'marcajesEditados' => $marcajesEditados
     ];
 }
 
@@ -402,6 +428,7 @@ if (!$modo_multiple) {
     $gEntradaAlm = $datos_empleado['gEntradaAlm'];
     $gSalidaFin = $datos_empleado['gSalidaFin'];
     $situaciones = $datos_empleado['situaciones'];
+    $marcajesEditados = $datos_empleado['marcajesEditados'];
     
     if($mostrar && $totalMarcajes > 0){
         $tEntrada = tendencia($gEntrada);
@@ -448,8 +475,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
 <title><?= $modo_multiple ? 'Reporte Múltiple - Viña' : 'Reporte Viña' ?></title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-
-    /* COLORES DE MARCAJEs */
+    /* COLORES DE MARCAJES */
     .tarde { background: #ed8e6e !important; color: #000000 !important; font-weight: bold; }
     .tarde9 { background: #a3d0eb !important; color: #000000 !important; font-weight: bold; }
     .faltante { background: #f5f178 !important; color: #000000 !important; font-weight: bold; }
@@ -458,6 +484,18 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
     .morado { background: #ccb8ef !important; color: #000000 !important; font-weight: bold; }
     .dia-descanso { background-color: #e0e0e0 !important; color: #000000 !important; font-style: italic; }
     
+    /* Estilo para marcajes editados manualmente */
+    .editado-manual {
+        position: relative;
+        cursor: help;
+    }
+    .editado-manual::after {
+        content: "✏️";
+        font-size: 12px;
+        margin-left: 5px;
+        opacity: 0.7;
+    }
+    
     /* Estilo para el texto en celdas faltantes */
     .faltante-texto {
         font-style: italic;
@@ -465,7 +503,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
         font-weight: bold;
     }
     
-    /* COLORES DE SITUACIONES - PERMISO EN VERDE (#57df77) */
+    /* COLORES DE SITUACIONES */
     .situacion-permiso,
     .situacion-permiso td,
     td.situacion-permiso,
@@ -515,7 +553,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
     .situacion-no-se-presento td,
     td.situacion-no-se-presento,
     tr.situacion-no-se-presento td {
-        background-color: #ec7b7b !important;  /* 🔥 Color rojito/rosado */
+        background-color: #ec7b7b !important;
         color: #000000 !important;
         font-weight: bold;
     }
@@ -910,7 +948,25 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
         border-collapse: collapse;
     }
     
-
+    .leyenda-centrada {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        margin: 15px 0;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        font-size: 12px;
+    }
+    
+    /* Ajuste para los nombres de días completos */
+    td:nth-child(2), th:nth-child(2) {
+        min-width: 90px;
+        text-align: center;
+    }
+    
     @media (max-width: 768px) {
         .botones-fijos {
             position: static;
@@ -941,6 +997,9 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
         }
         .graficas-grid {
             grid-template-columns: 1fr;
+        }
+        td:nth-child(2), th:nth-child(2) {
+            min-width: 80px;
         }
     }
     
@@ -994,10 +1053,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
 
 <form method="GET" class="filtro filtro-flex">
 
-
-<div class="leyenda-centrada" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 12px;">
-    
-    
+<div class="leyenda-centrada">
     <div style="display: flex; align-items: center; gap: 5px;">
         <span style="width: 16px; height: 16px; background: #ed8e6e; border-radius: 3px; border: 1px solid #aaa;"></span>
         <span style="color: #000000;">Después 08:00</span>
@@ -1031,6 +1087,11 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
     <div style="display: flex; align-items: center; gap: 5px;">
         <span style="width: 16px; height: 16px; background: #e0e0e0; border-radius: 3px; border: 1px solid #aaa;"></span>
         <span style="color: #000000;">Fin de semana</span>
+    </div>
+    
+    <div style="display: flex; align-items: center; gap: 5px;">
+        <span style="font-size: 14px;">✏️</span>
+        <span style="color: #000000;">Editado manualmente</span>
     </div>
     
     <div style="width: 100%; height: 1px; background: #ddd; margin: 5px 0;"></div>
@@ -1098,6 +1159,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
             $emp_id_unico = $emp['id_empleado'];
             $emp_nombre_completo = $emp['nombre']." ".$emp['apellido'];
             $situaciones_emp = $emp_data['situaciones'];
+            $marcajesEditados_emp = $emp_data['marcajesEditados'];
             
             $tEntrada_ind = tendencia($emp_data['gEntrada']);
             $tSalidaAlm_ind = tendencia($emp_data['gSalidaAlm']);
@@ -1144,7 +1206,17 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
             </div>
             
             <table width="100%" class="multiple-empleado">
-                <thead><tr><th>#</th><th>Día</th><th>Fecha</th><th>Entrada</th><th>Salida Alm</th><th>Entrada Alm</th><th>Salida</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Día</th>
+                        <th>Fecha</th>
+                        <th>Entrada</th>
+                        <th>Salida Alm</th>
+                        <th>Entrada Alm</th>
+                        <th>Salida</th>
+                    </tr>
+                </thead>
                 <tbody>
                 <?php $i=1; foreach($fechas_laborables as $fecha): ?>
                     <?php
@@ -1152,8 +1224,11 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                     $situacion = $situaciones_emp[$fecha] ?? '';
                     $clase_situacion = claseSituacion($situacion, $personalizaciones);
                     $situacion_formateada = mostrarSituacion($situacion, $personalizaciones);
-                    $dia_corto = obtenerDiaCorto($fecha);
+                    // Usar la nueva función para días completos
+                    $dia_completo = obtenerDiaCompleto($fecha);
                     $fecha_formateada = formatearFechaMes($fecha);
+                    $editado = $marcajesEditados_emp[$fecha] ?? false;
+                    $clase_editado = $editado ? 'editado-manual' : '';
                     ?>
                     
                     <?php if($tiene_marcajes): 
@@ -1165,9 +1240,9 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                     ?>
                         <tr class="<?= $clase_situacion ?>">
                             <td><?= $i++ ?></td>
-                            <td><strong><?= $dia_corto ?></strong></td>
+                            <td><strong><?= $dia_completo ?></strong></td>
                             <td><?= $fecha_formateada ?></td>
-                            <td class="<?= $entrada_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_manana', $dia['entrada_manana'] ?? '') ?>">
+                            <td class="<?= $entrada_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_manana', $dia['entrada_manana'] ?? '') . ' ' . ($entrada_vacia ? '' : $clase_editado) ?>">
                                 <?php 
                                 if ($entrada_vacia && $situacion) {
                                     echo $situacion_formateada;
@@ -1178,7 +1253,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                                 }
                                 ?>
                             </td>
-                            <td class="<?= $salida_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_almuerzo', $dia['salida_almuerzo'] ?? '') ?>">
+                            <td class="<?= $salida_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_almuerzo', $dia['salida_almuerzo'] ?? '') . ' ' . ($salida_alm_vacia ? '' : $clase_editado) ?>">
                                 <?php 
                                 if ($salida_alm_vacia && $situacion) {
                                     echo $situacion_formateada;
@@ -1189,7 +1264,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                                 }
                                 ?>
                             </td>
-                            <td class="<?= $entrada_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_almuerzo', $dia['entrada_almuerzo'] ?? '') ?>">
+                            <td class="<?= $entrada_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_almuerzo', $dia['entrada_almuerzo'] ?? '') . ' ' . ($entrada_alm_vacia ? '' : $clase_editado) ?>">
                                 <?php 
                                 if ($entrada_alm_vacia && $situacion) {
                                     echo $situacion_formateada;
@@ -1200,7 +1275,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                                 }
                                 ?>
                             </td>
-                            <td class="<?= $salida_fin_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_final', $dia['salida_final'] ?? '') ?>">
+                            <td class="<?= $salida_fin_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_final', $dia['salida_final'] ?? '') . ' ' . ($salida_fin_vacia ? '' : $clase_editado) ?>">
                                 <?php 
                                 if ($salida_fin_vacia && $situacion) {
                                     echo $situacion_formateada;
@@ -1215,7 +1290,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                     <?php else: ?>
                         <tr class="<?= $clase_situacion ?: 'faltante' ?>">
                             <td><?= $i++ ?></td>
-                            <td><strong><?= $dia_corto ?></strong></td>
+                            <td><strong><?= $dia_completo ?></strong></td>
                             <td><?= $fecha_formateada ?></td>
                             <td colspan="4" style="text-align: center;">
                                 <?= $situacion_formateada ?: '<span class="faltante-texto">No marcó</span>' ?>
@@ -1305,7 +1380,17 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
         </div>
         
         <table width="100%">
-            <thead><tr><th>#</th><th>Día</th><th>Fecha</th><th>Entrada</th><th>Salida Alm</th><th>Entrada Alm</th><th>Salida</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Día</th>
+                    <th>Fecha</th>
+                    <th>Entrada</th>
+                    <th>Salida Alm</th>
+                    <th>Entrada Alm</th>
+                    <th>Salida</th>
+                </tr>
+            </thead>
             <tbody>
             <?php $i=1; foreach($fechas_laborables as $fecha): ?>
                 <?php
@@ -1313,8 +1398,11 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                 $situacion = $situaciones[$fecha] ?? '';
                 $clase_situacion = claseSituacion($situacion, $personalizaciones);
                 $situacion_formateada = mostrarSituacion($situacion, $personalizaciones);
-                $dia_corto = obtenerDiaCorto($fecha);
+                // Usar la nueva función para días completos
+                $dia_completo = obtenerDiaCompleto($fecha);
                 $fecha_formateada = formatearFechaMes($fecha);
+                $editado = $marcajesEditados[$fecha] ?? false;
+                $clase_editado = $editado ? 'editado-manual' : '';
                 ?>
                 
                 <?php if($tiene_marcajes): 
@@ -1326,9 +1414,9 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                 ?>
                     <tr class="<?= $clase_situacion ?>">
                         <td><?= $i++ ?></td>
-                        <td><strong><?= $dia_corto ?></strong></td>
+                        <td><strong><?= $dia_completo ?></strong></td>
                         <td><?= $fecha_formateada ?></td>
-                        <td class="<?= $entrada_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_manana', $dia['entrada_manana'] ?? '') ?>">
+                        <td class="<?= $entrada_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_manana', $dia['entrada_manana'] ?? '') . ' ' . ($entrada_vacia ? '' : $clase_editado) ?>">
                             <?php 
                             if ($entrada_vacia && $situacion) {
                                 echo $situacion_formateada;
@@ -1339,7 +1427,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                             }
                             ?>
                         </td>
-                        <td class="<?= $salida_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_almuerzo', $dia['salida_almuerzo'] ?? '') ?>">
+                        <td class="<?= $salida_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_almuerzo', $dia['salida_almuerzo'] ?? '') . ' ' . ($salida_alm_vacia ? '' : $clase_editado) ?>">
                             <?php 
                             if ($salida_alm_vacia && $situacion) {
                                 echo $situacion_formateada;
@@ -1350,7 +1438,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                             }
                             ?>
                         </td>
-                        <td class="<?= $entrada_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_almuerzo', $dia['entrada_almuerzo'] ?? '') ?>">
+                        <td class="<?= $entrada_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_almuerzo', $dia['entrada_almuerzo'] ?? '') . ' ' . ($entrada_alm_vacia ? '' : $clase_editado) ?>">
                             <?php 
                             if ($entrada_alm_vacia && $situacion) {
                                 echo $situacion_formateada;
@@ -1361,7 +1449,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                             }
                             ?>
                         </td>
-                        <td class="<?= $salida_fin_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_final', $dia['salida_final'] ?? '') ?>">
+                        <td class="<?= $salida_fin_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_final', $dia['salida_final'] ?? '') . ' ' . ($salida_fin_vacia ? '' : $clase_editado) ?>">
                             <?php 
                             if ($salida_fin_vacia && $situacion) {
                                 echo $situacion_formateada;
@@ -1376,7 +1464,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                 <?php else: ?>
                     <tr class="<?= $clase_situacion ?: 'faltante' ?>">
                         <td><?= $i++ ?></td>
-                        <td><strong><?= $dia_corto ?></strong></td>
+                        <td><strong><?= $dia_completo ?></strong></td>
                         <td><?= $fecha_formateada ?></td>
                         <td colspan="4" style="text-align: center;">
                             <?= $situacion_formateada ?: '<span class="faltante-texto">No marcó</span>' ?>

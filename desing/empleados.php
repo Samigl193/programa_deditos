@@ -1,6 +1,19 @@
 <?php
+session_start();
 include("conexion.php");
 
+// Verificar si el usuario está logueado
+if (!isset($_SESSION['id_usuario'])) {
+    header("Location: login.php");
+    exit();
+}
+
+// Obtener el rol del usuario
+$id_rol = $_SESSION['id_rol'] ?? 0;
+$es_master = ($id_rol == 1); // MASTER
+$es_admin = ($id_rol == 2);  // ADMIN
+
+// Consulta de empleados
 $sql = "
 SELECT e.*, h.nombre AS horario
 FROM empleados e
@@ -25,7 +38,13 @@ if (!$res) {
 
 <div class="panel">
 
-<h1>Administrar Empleados</h1>
+<h1>Administrar Empleados 
+    <?php if($es_master): ?>
+        <span style="font-size: 0.8em; background: #5b2a82; color: white; padding: 3px 10px; border-radius: 20px;">Master</span>
+    <?php else: ?>
+        <span style="font-size: 0.8em; background: #3498db; color: white; padding: 3px 10px; border-radius: 20px;">Admin</span>
+    <?php endif; ?>
+</h1>
 
 <div class="actions-top">
 <div class="dropdown">
@@ -40,12 +59,25 @@ if (!$res) {
 
 <button class="btn btn-add" onclick="location.href='empleado_crear.php'">➕ Crear</button>
 <button class="btn btn-edit" onclick="editar()">✏ Editar</button>
+
+<!-- Botón Eliminar - Solo visible para MASTER (id_rol = 1) -->
+<?php if($es_master): ?>
 <button class="btn btn-del" onclick="eliminar()">🗑 Eliminar</button>
+<?php endif; ?>
+
 <button class="btn btn-rep" onclick="reporte()">📄 Reporte</button>
 <button class="btn btn-subir" onclick="subirArchivo()">📤 Subir archivo</button>
 <button class="btn btn-files" onclick="verArchivos()">📂 Ver archivos</button>
 <button class="btn btn-panel" onclick="location.href='panel.php'">🏠 Panel General</button>
 </div>
+
+<!-- Mensaje informativo solo para ADMIN -->
+<?php if($es_admin): ?>
+<div style="background-color: #e8f5e8; color: #2e7d32; padding: 10px; border-radius: 4px; margin-bottom: 15px; text-align: center; border-left: 4px solid #2e7d32;">
+    <strong>👤 Modo Administrador</strong> - No tienes permisos para eliminar empleados. 
+    Si necesitas eliminar algún registro, contacta al Master.
+</div>
+<?php endif; ?>
 
 <table>
 <thead>
@@ -88,6 +120,8 @@ if (!$res) {
 
 <script>
 let modoSeleccion = 'radio';
+let esMaster = <?php echo $es_master ? 'true' : 'false'; ?>;
+let esAdmin = <?php echo $es_admin ? 'true' : 'false'; ?>;
 
 // Función para cerrar el dropdown
 function cerrarDropdown() {
@@ -215,6 +249,11 @@ function editar() {
 }
 
 function eliminar() {
+    // Solo permitir eliminar si es MASTER
+    if (!esMaster) {
+        return alert("❌ No tienes permisos para eliminar empleados. Esta función es solo para MASTER.");
+    }
+    
     const id = getSel();
     if(!id) return alert("Selecciona al menos un empleado");
     
@@ -224,7 +263,9 @@ function eliminar() {
             location = "empleado_eliminar.php?id=" + id;
         }
     } else {
-        location = "empleado_eliminar.php?id=" + id;
+        if(confirm("¿Estás seguro de eliminar este empleado?")) {
+            location = "empleado_eliminar.php?id=" + id;
+        }
     }
 }
 
