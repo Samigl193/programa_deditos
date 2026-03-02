@@ -948,23 +948,70 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
         border-collapse: collapse;
     }
     
+    /* LEYENDA MODIFICADA - AHORA EN UNA SOLA FILA */
     .leyenda-centrada {
         display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
+        flex-wrap: nowrap;
+        gap: 8px;
         align-items: center;
-        justify-content: center;
-        margin: 15px 0;
-        padding: 10px;
+        justify-content: flex-start;
+        margin: 10px 0;
+        padding: 8px 12px;
         background: #f8f9fa;
         border-radius: 8px;
-        font-size: 12px;
+        font-size: 11px;
+        overflow-x: auto;
+        white-space: nowrap;
+        max-width: 100%;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .leyenda-centrada > div {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+    
+    .leyenda-centrada .separador {
+        width: 1px;
+        height: 20px;
+        background: #ccc;
+        margin: 0 5px;
+        display: inline-block;
+        flex-shrink: 0;
     }
     
     /* Ajuste para los nombres de días completos */
     td:nth-child(2), th:nth-child(2) {
         min-width: 90px;
         text-align: center;
+    }
+    
+    /* NUEVOS ESTILOS PARA IMPRESIÓN */
+    .page-break {
+        page-break-before: always;
+    }
+    
+    .empleado-seccion {
+        page-break-inside: avoid;
+    }
+    
+    table {
+        page-break-inside: auto;
+    }
+    
+    tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+    
+    thead {
+        display: table-header-group;
+    }
+    
+    tfoot {
+        display: table-footer-group;
     }
     
     @media (max-width: 768px) {
@@ -1001,18 +1048,89 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
         td:nth-child(2), th:nth-child(2) {
             min-width: 80px;
         }
+        .leyenda-centrada {
+            font-size: 10px;
+            gap: 5px;
+            padding: 6px 8px;
+        }
     }
     
     @media print {
-        .no-print { display: none !important; }
-        .botones-fijos { display: none !important; }
-        body { background: white; padding: 0; }
-        .reporte { box-shadow: none; max-width: 100%; padding: 0; margin-top: 0; }
-        th { position: static; }
-        .situacion-permiso, .situacion-vacacion, .situacion-enfermedad,
-        .situacion-incapacidad, .situacion-dia-personal, .situacion-no-se-presento {
+        .no-print { 
+            display: none !important; 
+        }
+        .botones-fijos { 
+            display: none !important; 
+        }
+        .leyenda-centrada {
+            display: none !important;
+        }
+        body { 
+            background: white; 
+            padding: 0.5in;
+            margin: 0;
+        }
+        .reporte { 
+            box-shadow: none; 
+            max-width: 100%; 
+            padding: 0; 
+            margin-top: 0; 
+        }
+        /* ELIMINADO: header { display: none !important; } - AHORA SE MUESTRA */
+        header {
+            display: flex !important;
+            margin-bottom: 20px;
+        }
+        header img {
+            width: 180px;
+        }
+        hr {
+            display: none !important;
+        }
+        th { 
+            position: static; 
+            background: #5b2a82 !important;
+            color: white !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+        }
+        .situacion-permiso, .situacion-vacacion, .situacion-enfermedad,
+        .situacion-incapacidad, .situacion-dia-personal, .situacion-no-se-presento,
+        .tarde, .tarde9, .faltante, .verde, .naranja, .morado {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .empleado-sticky-header {
+            position: static;
+            box-shadow: none;
+            border: 1px solid #ddd;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .graficas-container {
+            page-break-inside: avoid;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        .empleado-seccion {
+            page-break-before: always;
+            page-break-inside: avoid;
+        }
+        .empleado-seccion:first-of-type {
+            page-break-before: auto;
+        }
+        /* Ajuste para que las gráficas se vean bien */
+        .graficas-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .grafica-item {
+            padding: 10px;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
         }
     }
 </style>
@@ -1040,6 +1158,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
 
 <div class="reporte">
 
+<!-- Quitado: class="no-print" para que aparezca en impresión -->
 <header>
 <img src="../img/deditos.png">
 <div>
@@ -1049,61 +1168,63 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
 </div>
 </header>
 
-<hr>
+<hr class="no-print">
 
-<form method="GET" class="filtro filtro-flex">
+<form method="GET" class="filtro filtro-flex no-print">
 
+<!-- LEYENDA MODIFICADA - AHORA EN UNA SOLA FILA -->
 <div class="leyenda-centrada">
-    <div style="display: flex; align-items: center; gap: 5px;">
-        <span style="width: 16px; height: 16px; background: #ed8e6e; border-radius: 3px; border: 1px solid #aaa;"></span>
-        <span style="color: #000000;">Después 08:00</span>
+    <div>
+        <span style="width: 14px; height: 14px; background: #ed8e6e; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
+        <span>Después 08:00</span>
     </div>
     
-    <div style="display: flex; align-items: center; gap: 5px;">
-        <span style="width: 16px; height: 16px; background: #a3d0eb; border-radius: 3px; border: 1px solid #aaa;"></span>
-        <span style="color: #000000;">Después 09:00</span>
+    <div>
+        <span style="width: 14px; height: 14px; background: #a3d0eb; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
+        <span>Después 09:00</span>
     </div>
     
-    <div style="display: flex; align-items: center; gap: 5px;">
-        <span style="width: 16px; height: 16px; background: #f5f178; border-radius: 3px; border: 1px solid #aaa;"></span>
-        <span style="color: #000000;">No marcó</span>
+    <div>
+        <span style="width: 14px; height: 14px; background: #f5f178; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
+        <span>No marcó</span>
     </div>
     
-    <div style="display: flex; align-items: center; gap: 5px;">
-        <span style="width: 16px; height: 16px; background: #9ce79c; border-radius: 3px; border: 1px solid #aaa;"></span>
-        <span style="color: #000000;">Salió después</span>
+    <div>
+        <span style="width: 14px; height: 14px; background: #9ce79c; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
+        <span>Salió después</span>
     </div>
     
-    <div style="display: flex; align-items: center; gap: 5px;">
-        <span style="width: 16px; height: 16px; background: #ebc094; border-radius: 3px; border: 1px solid #aaa;"></span>
-        <span style="color: #000000;">Llegó antes</span>
+    <div>
+        <span style="width: 14px; height: 14px; background: #ebc094; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
+        <span>Llegó antes</span>
     </div>
     
-    <div style="display: flex; align-items: center; gap: 5px;">
-        <span style="width: 16px; height: 16px; background: #ccb8ef; border-radius: 3px; border: 1px solid #aaa;"></span>
-        <span style="color: #000000;">Salió antes</span>
+    <div>
+        <span style="width: 14px; height: 14px; background: #ccb8ef; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
+        <span>Salió antes</span>
     </div>
     
-    <div style="display: flex; align-items: center; gap: 5px;">
-        <span style="width: 16px; height: 16px; background: #e0e0e0; border-radius: 3px; border: 1px solid #aaa;"></span>
-        <span style="color: #000000;">Fin de semana</span>
+    <div>
+        <span style="width: 14px; height: 14px; background: #e0e0e0; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
+        <span>Fin de semana</span>
     </div>
     
-    <div style="display: flex; align-items: center; gap: 5px;">
-        <span style="font-size: 14px;">✏️</span>
-        <span style="color: #000000;">Editado manualmente</span>
+    <div>
+        <span style="font-size: 12px;">✏️</span>
+        <span>Editado</span>
     </div>
     
-    <div style="width: 100%; height: 1px; background: #ddd; margin: 5px 0;"></div>
+    <span class="separador"></span>
     
     <?php 
     foreach ($situaciones_predefinidas as $sit): 
         $color = obtenerColorSituacion($sit, $personalizaciones);
         $texto = $sit;
+        if ($texto == 'No se presentó') $texto = 'No presentó';
     ?>
-    <div style="display: flex; align-items: center; gap: 5px;">
-        <span style="width: 16px; height: 16px; background: <?= $color ?>; border-radius: 3px; border: 1px solid #aaa;"></span>
-        <span style="color: #000000;"><?= $texto ?></span>
+    <div>
+        <span style="width: 14px; height: 14px; background: <?= $color ?>; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
+        <span><?= $texto ?></span>
     </div>
     <?php endforeach; ?>
 </div>
@@ -1133,17 +1254,18 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
 </form>
 
 <?php if(!$mostrar): ?>
-    <div class="msg-bienvenida">
+    <div class="msg-bienvenida no-print">
         <strong>¡Bienvenido al sistema de reportes!</strong><br><br>
         Por favor, selecciona un rango de fechas y presiona el botón <strong>"Ver"</strong>.
     </div>
 <?php elseif($modo_multiple && !$hay_datos_multiple): ?>
-    <div class="msg-vacio">No hay datos registrados en el rango seleccionado.</div>
+    <div class="msg-vacio no-print">No hay datos registrados en el rango seleccionado.</div>
 <?php else: ?>
 
     <?php if($modo_multiple): ?>
 
-        <div style="background: #0e838e; color: white; padding: 12px 18px; border-radius: 6px; margin-bottom: 25px;">
+        <!-- Encabezado del reporte múltiple (solo visible en pantalla, no en impresión) -->
+        <div class="no-print" style="background: #0e838e; color: white; padding: 12px 18px; border-radius: 6px; margin-bottom: 25px;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
                 <div><strong>REPORTE MÚLTIPLE</strong> <span><?= $fecha_inicio_formateada ?> - <?= $fecha_fin_formateada ?></span></div>
                 <div><span style="background: rgba(0,0,0,0.2); padding: 5px 12px; border-radius: 20px;"><?= $total_empleados ?> empleado(s)</span></div>
@@ -1173,39 +1295,220 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
             ?>
             
             <?php if($idx > 0): ?>
-                <div style="margin: 50px 0 30px 0; border-top: 3px solid #5b2a82;"></div>
+                <!-- Para impresión: salto de página entre empleados -->
+                <div class="page-break"></div>
             <?php endif; ?>
             
+            <!-- Contenedor de cada empleado con clase para manejo de impresión -->
+            <div class="empleado-seccion <?= $idx > 0 ? 'page-break' : '' ?>">
+                
+                <div class="empleado-sticky-header">
+                    <div class="empleado-info">
+                        <h2 class="empleado-nombre"><span>👤</span> <?= htmlspecialchars($emp_nombre_completo) ?></h2>
+                        <p class="empleado-detalles">
+                            <strong>Código:</strong> <?= htmlspecialchars($emp['codigo_biometrico'] ?? '') ?> | 
+                            <strong>Puesto:</strong> <?= htmlspecialchars($emp['puesto'] ?? '') ?> | 
+                            <strong>Horario:</strong> <?= htmlspecialchars($emp['horario'] ?? '-') ?>
+                        </p>
+                    </div>
+                    <div class="resumen-sticky-grid">
+                        <div class="resumen-sticky-item">
+                            <div class="resumen-sticky-titulo">Periodo</div>
+                            <div class="resumen-sticky-valor"><?= $periodoTexto ?></div>
+                        </div>
+                        <div class="resumen-sticky-item">
+                            <div class="resumen-sticky-titulo">Tardanza</div>
+                            <div class="resumen-sticky-valor"><?= $emp_data['formatoTarde'] ?></div>
+                        </div>
+                        <div class="resumen-sticky-item">
+                            <div class="resumen-sticky-titulo">Días</div>
+                            <div class="resumen-sticky-valor"><?= $emp_data['diasTrabajados'] ?>/<?= $dias_laborables_periodo ?></div>
+                        </div>
+                        <div class="resumen-sticky-item">
+                            <div class="resumen-sticky-titulo">Marcajes</div>
+                            <div class="resumen-sticky-valor"><?= $emp_data['totalMarcajes'] ?></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <table width="100%" class="multiple-empleado">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Día</th>
+                            <th>Fecha</th>
+                            <th>Entrada</th>
+                            <th>Salida Alm</th>
+                            <th>Entrada Alm</th>
+                            <th>Salida</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php $i=1; foreach($fechas_laborables as $fecha): ?>
+                        <?php
+                        $tiene_marcajes = isset($emp_data['porDia'][$fecha]);
+                        $situacion = $situaciones_emp[$fecha] ?? '';
+                        $clase_situacion = claseSituacion($situacion, $personalizaciones);
+                        $situacion_formateada = mostrarSituacion($situacion, $personalizaciones);
+                        // Usar la nueva función para días completos
+                        $dia_completo = obtenerDiaCompleto($fecha);
+                        $fecha_formateada = formatearFechaMes($fecha);
+                        $editado = $marcajesEditados_emp[$fecha] ?? false;
+                        $clase_editado = $editado ? 'editado-manual' : '';
+                        ?>
+                        
+                        <?php if($tiene_marcajes): 
+                            $dia = $emp_data['porDia'][$fecha];
+                            $entrada_vacia = empty($dia['entrada_manana']);
+                            $salida_alm_vacia = empty($dia['salida_almuerzo']);
+                            $entrada_alm_vacia = empty($dia['entrada_almuerzo']);
+                            $salida_fin_vacia = empty($dia['salida_final']);
+                        ?>
+                            <tr class="<?= $clase_situacion ?>">
+                                <td><?= $i++ ?></td>
+                                <td><strong><?= $dia_completo ?></strong></td>
+                                <td><?= $fecha_formateada ?></td>
+                                <td class="<?= $entrada_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_manana', $dia['entrada_manana'] ?? '') . ' ' . ($entrada_vacia ? '' : $clase_editado) ?>">
+                                    <?php 
+                                    if ($entrada_vacia && $situacion) {
+                                        echo $situacion_formateada;
+                                    } elseif ($entrada_vacia) {
+                                        echo '<span class="faltante-texto">No marcó</span>';
+                                    } else {
+                                        echo formatearHora12($dia['entrada_manana']);
+                                    }
+                                    ?>
+                                </td>
+                                <td class="<?= $salida_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_almuerzo', $dia['salida_almuerzo'] ?? '') . ' ' . ($salida_alm_vacia ? '' : $clase_editado) ?>">
+                                    <?php 
+                                    if ($salida_alm_vacia && $situacion) {
+                                        echo $situacion_formateada;
+                                    } elseif ($salida_alm_vacia) {
+                                        echo '<span class="faltante-texto">No marcó</span>';
+                                    } else {
+                                        echo formatearHora12($dia['salida_almuerzo']);
+                                    }
+                                    ?>
+                                </td>
+                                <td class="<?= $entrada_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_almuerzo', $dia['entrada_almuerzo'] ?? '') . ' ' . ($entrada_alm_vacia ? '' : $clase_editado) ?>">
+                                    <?php 
+                                    if ($entrada_alm_vacia && $situacion) {
+                                        echo $situacion_formateada;
+                                    } elseif ($entrada_alm_vacia) {
+                                        echo '<span class="faltante-texto">No marcó</span>';
+                                    } else {
+                                        echo formatearHora12($dia['entrada_almuerzo']);
+                                    }
+                                    ?>
+                                </td>
+                                <td class="<?= $salida_fin_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_final', $dia['salida_final'] ?? '') . ' ' . ($salida_fin_vacia ? '' : $clase_editado) ?>">
+                                    <?php 
+                                    if ($salida_fin_vacia && $situacion) {
+                                        echo $situacion_formateada;
+                                    } elseif ($salida_fin_vacia) {
+                                        echo '<span class="faltante-texto">No marcó</span>';
+                                    } else {
+                                        echo formatearHora12($dia['salida_final']);
+                                    }
+                                    ?>
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <tr class="<?= $clase_situacion ?: 'faltante' ?>">
+                                <td><?= $i++ ?></td>
+                                <td><strong><?= $dia_completo ?></strong></td>
+                                <td><?= $fecha_formateada ?></td>
+                                <td colspan="4" style="text-align: center;">
+                                    <?= $situacion_formateada ?: '<span class="faltante-texto">No marcó</span>' ?>
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+                
+                <?php if($emp_data['totalMarcajes']>0 && count($emp_data['labels'])>0): ?>
+                <div class="graficas-container">
+                    <div class="graficas-titulo">📊 Comportamiento - <?= htmlspecialchars(explode(' ', $emp_nombre_completo)[0]) ?></div>
+                    <div class="graficas-grid">
+                        <div class="grafica-item">
+                            <h4>Entrada 8AM</h4>
+                            <div class="promedio-badge">⏱ Promedio: <?= $promEntradaFormato_ind ?></div>
+                            <canvas id="grafEntrada_<?= $emp_id_unico ?>" width="360" height="200"></canvas>
+                        </div>
+                        <div class="grafica-item">
+                            <h4>Salida 1PM</h4>
+                            <div class="promedio-badge">⏱ Promedio: <?= $promSalidaAlmFormato_ind ?></div>
+                            <canvas id="grafSalidaAlm_<?= $emp_id_unico ?>" width="360" height="200"></canvas>
+                        </div>
+                        <div class="grafica-item">
+                            <h4>Entrada 2PM</h4>
+                            <div class="promedio-badge">⏱ Promedio: <?= $promEntradaAlmFormato_ind ?></div>
+                            <canvas id="grafEntradaAlm_<?= $emp_id_unico ?>" width="360" height="200"></canvas>
+                        </div>
+                        <div class="grafica-item">
+                            <h4>Salida 5PM</h4>
+                            <div class="promedio-badge">⏱ Promedio: <?= $promSalidaFinFormato_ind ?></div>
+                            <canvas id="grafSalidaFin_<?= $emp_id_unico ?>" width="360" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <script>
+                (function() {
+                    const labels_<?= $emp_id_unico ?> = <?= json_encode($emp_data['labels']) ?>;
+                    function crearGraf_<?= $emp_id_unico ?>(id, datos, tendencia, color) {
+                        const canvas = document.getElementById(id);
+                        if (!canvas) return;
+                        new Chart(canvas, {
+                            type: 'line',
+                            data: {
+                                labels: labels_<?= $emp_id_unico ?>,
+                                datasets: [
+                                    { label: 'Horario', data: datos, borderColor: color, backgroundColor: color.replace('1)', '.15)'), tension: 0.35, pointRadius: 4, borderWidth: 2, fill: true },
+                                    { label: 'Tendencia', data: tendencia, borderColor: 'rgba(241,196,15,1)', borderDash: [6,6], tension: 0, pointRadius: 0, borderWidth: 3, fill: false }
+                                ]
+                            },
+                            options: { responsive: false, plugins: { legend: { display: true } }, scales: { y: { ticks: { callback: function(v) {
+                                let h = Math.floor(v), m = Math.round((v - h) * 60), ampm = h >= 12 ? 'PM' : 'AM', h12 = h % 12 || 12;
+                                return h12 + ":" + String(m).padStart(2,'0') + " " + ampm;
+                            } } } } }
+                        });
+                    }
+                    crearGraf_<?= $emp_id_unico ?>("grafEntrada_<?= $emp_id_unico ?>", <?= json_encode($emp_data['gEntrada']) ?>, <?= json_encode($tEntrada_ind) ?>, "rgba(52,152,219,1)");
+                    crearGraf_<?= $emp_id_unico ?>("grafEntradaAlm_<?= $emp_id_unico ?>", <?= json_encode($emp_data['gEntradaAlm']) ?>, <?= json_encode($tEntradaAlm_ind) ?>, "rgba(52,152,219,1)");
+                    crearGraf_<?= $emp_id_unico ?>("grafSalidaAlm_<?= $emp_id_unico ?>", <?= json_encode($emp_data['gSalidaAlm']) ?>, <?= json_encode($tSalidaAlm_ind) ?>, "rgba(231,76,60,1)");
+                    crearGraf_<?= $emp_id_unico ?>("grafSalidaFin_<?= $emp_id_unico ?>", <?= json_encode($emp_data['gSalidaFin']) ?>, <?= json_encode($tSalidaFin_ind) ?>, "rgba(231,76,60,1)");
+                })();
+                </script>
+                <?php endif; ?>
+                
+            </div> <!-- Cierra empleado-seccion -->
+        <?php endforeach; ?>
+        
+    <?php else: ?>
+        <!-- Modo individual -->
+        <?php if($totalMarcajes>0): ?>
+        
+        <div class="empleado-seccion">
             <div class="empleado-sticky-header">
                 <div class="empleado-info">
-                    <h2 class="empleado-nombre"><span>👤</span> <?= htmlspecialchars($emp_nombre_completo) ?></h2>
+                    <h2 class="empleado-nombre"><span>👤</span> <?= htmlspecialchars($emp['nombre']." ".$emp['apellido']) ?></h2>
                     <p class="empleado-detalles">
                         <strong>Código:</strong> <?= htmlspecialchars($emp['codigo_biometrico'] ?? '') ?> | 
                         <strong>Puesto:</strong> <?= htmlspecialchars($emp['puesto'] ?? '') ?> | 
-                        <strong>Horario:</strong> <?= htmlspecialchars($emp['horario'] ?? '-') ?>
+                        <strong>Horario:</strong> <?= htmlspecialchars($emp['horario'] ?? 'Horario General') ?>
                     </p>
                 </div>
                 <div class="resumen-sticky-grid">
-                    <div class="resumen-sticky-item">
-                        <div class="resumen-sticky-titulo">Periodo</div>
-                        <div class="resumen-sticky-valor"><?= $periodoTexto ?></div>
-                    </div>
-                    <div class="resumen-sticky-item">
-                        <div class="resumen-sticky-titulo">Tardanza</div>
-                        <div class="resumen-sticky-valor"><?= $emp_data['formatoTarde'] ?></div>
-                    </div>
-                    <div class="resumen-sticky-item">
-                        <div class="resumen-sticky-titulo">Días</div>
-                        <div class="resumen-sticky-valor"><?= $emp_data['diasTrabajados'] ?>/<?= $dias_laborables_periodo ?></div>
-                    </div>
-                    <div class="resumen-sticky-item">
-                        <div class="resumen-sticky-titulo">Marcajes</div>
-                        <div class="resumen-sticky-valor"><?= $emp_data['totalMarcajes'] ?></div>
-                    </div>
+                    <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Periodo</div><div class="resumen-sticky-valor"><?= $periodoTexto ?></div></div>
+                    <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Tardanza</div><div class="resumen-sticky-valor"><?= $formatoTarde ?></div></div>
+                    <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Días</div><div class="resumen-sticky-valor"><?= $diasTrabajados ?>/<?= $dias_laborables_periodo ?></div></div>
+                    <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Marcajes</div><div class="resumen-sticky-valor"><?= $totalMarcajes ?></div></div>
                 </div>
             </div>
             
-            <table width="100%" class="multiple-empleado">
+            <table width="100%">
                 <thead>
                     <tr>
                         <th>#</th>
@@ -1220,19 +1523,19 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                 <tbody>
                 <?php $i=1; foreach($fechas_laborables as $fecha): ?>
                     <?php
-                    $tiene_marcajes = isset($emp_data['porDia'][$fecha]);
-                    $situacion = $situaciones_emp[$fecha] ?? '';
+                    $tiene_marcajes = isset($porDia[$fecha]);
+                    $situacion = $situaciones[$fecha] ?? '';
                     $clase_situacion = claseSituacion($situacion, $personalizaciones);
                     $situacion_formateada = mostrarSituacion($situacion, $personalizaciones);
                     // Usar la nueva función para días completos
                     $dia_completo = obtenerDiaCompleto($fecha);
                     $fecha_formateada = formatearFechaMes($fecha);
-                    $editado = $marcajesEditados_emp[$fecha] ?? false;
+                    $editado = $marcajesEditados[$fecha] ?? false;
                     $clase_editado = $editado ? 'editado-manual' : '';
                     ?>
                     
                     <?php if($tiene_marcajes): 
-                        $dia = $emp_data['porDia'][$fecha];
+                        $dia = $porDia[$fecha];
                         $entrada_vacia = empty($dia['entrada_manana']);
                         $salida_alm_vacia = empty($dia['salida_almuerzo']);
                         $entrada_alm_vacia = empty($dia['entrada_almuerzo']);
@@ -1301,222 +1604,49 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                 </tbody>
             </table>
             
-            <?php if($emp_data['totalMarcajes']>0 && count($emp_data['labels'])>0): ?>
+            <?php if($totalMarcajes>0 && count($labels)>0): ?>
             <div class="graficas-container">
-                <div class="graficas-titulo">📊 Comportamiento - <?= htmlspecialchars(explode(' ', $emp_nombre_completo)[0]) ?></div>
+                <div class="graficas-titulo">📊 Comportamiento - <?= htmlspecialchars(explode(' ', $emp['nombre'])[0]) ?></div>
                 <div class="graficas-grid">
-                    <div class="grafica-item">
-                        <h4>Entrada 8AM</h4>
-                        <div class="promedio-badge">⏱ Promedio: <?= $promEntradaFormato_ind ?></div>
-                        <canvas id="grafEntrada_<?= $emp_id_unico ?>" width="360" height="200"></canvas>
-                    </div>
-                    <div class="grafica-item">
-                        <h4>Salida 1PM</h4>
-                        <div class="promedio-badge">⏱ Promedio: <?= $promSalidaAlmFormato_ind ?></div>
-                        <canvas id="grafSalidaAlm_<?= $emp_id_unico ?>" width="360" height="200"></canvas>
-                    </div>
-                    <div class="grafica-item">
-                        <h4>Entrada 2PM</h4>
-                        <div class="promedio-badge">⏱ Promedio: <?= $promEntradaAlmFormato_ind ?></div>
-                        <canvas id="grafEntradaAlm_<?= $emp_id_unico ?>" width="360" height="200"></canvas>
-                    </div>
-                    <div class="grafica-item">
-                        <h4>Salida 5PM</h4>
-                        <div class="promedio-badge">⏱ Promedio: <?= $promSalidaFinFormato_ind ?></div>
-                        <canvas id="grafSalidaFin_<?= $emp_id_unico ?>" width="360" height="200"></canvas>
-                    </div>
+                    <div class="grafica-item"><h4>Entrada 8AM</h4><div class="promedio-badge">⏱ Promedio: <?= $promEntradaFormato ?></div><canvas id="grafEntrada" width="360" height="200"></canvas></div>
+                    <div class="grafica-item"><h4>Salida 1PM</h4><div class="promedio-badge">⏱ Promedio: <?= $promSalidaAlmFormato ?></div><canvas id="grafSalidaAlmuerzo" width="360" height="200"></canvas></div>
+                    <div class="grafica-item"><h4>Entrada 2PM</h4><div class="promedio-badge">⏱ Promedio: <?= $promEntradaAlmFormato ?></div><canvas id="grafEntradaAlmuerzo" width="360" height="200"></canvas></div>
+                    <div class="grafica-item"><h4>Salida 5PM</h4><div class="promedio-badge">⏱ Promedio: <?= $promSalidaFinFormato ?></div><canvas id="grafSalidaFinal" width="360" height="200"></canvas></div>
                 </div>
             </div>
             
             <script>
-            (function() {
-                const labels_<?= $emp_id_unico ?> = <?= json_encode($emp_data['labels']) ?>;
-                function crearGraf_<?= $emp_id_unico ?>(id, datos, tendencia, color) {
-                    const canvas = document.getElementById(id);
-                    if (!canvas) return;
-                    new Chart(canvas, {
-                        type: 'line',
-                        data: {
-                            labels: labels_<?= $emp_id_unico ?>,
-                            datasets: [
-                                { label: 'Horario', data: datos, borderColor: color, backgroundColor: color.replace('1)', '.15)'), tension: 0.35, pointRadius: 4, borderWidth: 2, fill: true },
-                                { label: 'Tendencia', data: tendencia, borderColor: 'rgba(241,196,15,1)', borderDash: [6,6], tension: 0, pointRadius: 0, borderWidth: 3, fill: false }
-                            ]
-                        },
-                        options: { responsive: false, plugins: { legend: { display: true } }, scales: { y: { ticks: { callback: function(v) {
-                            let h = Math.floor(v), m = Math.round((v - h) * 60), ampm = h >= 12 ? 'PM' : 'AM', h12 = h % 12 || 12;
-                            return h12 + ":" + String(m).padStart(2,'0') + " " + ampm;
-                        } } } } }
-                    });
-                }
-                crearGraf_<?= $emp_id_unico ?>("grafEntrada_<?= $emp_id_unico ?>", <?= json_encode($emp_data['gEntrada']) ?>, <?= json_encode($tEntrada_ind) ?>, "rgba(52,152,219,1)");
-                crearGraf_<?= $emp_id_unico ?>("grafEntradaAlm_<?= $emp_id_unico ?>", <?= json_encode($emp_data['gEntradaAlm']) ?>, <?= json_encode($tEntradaAlm_ind) ?>, "rgba(52,152,219,1)");
-                crearGraf_<?= $emp_id_unico ?>("grafSalidaAlm_<?= $emp_id_unico ?>", <?= json_encode($emp_data['gSalidaAlm']) ?>, <?= json_encode($tSalidaAlm_ind) ?>, "rgba(231,76,60,1)");
-                crearGraf_<?= $emp_id_unico ?>("grafSalidaFin_<?= $emp_id_unico ?>", <?= json_encode($emp_data['gSalidaFin']) ?>, <?= json_encode($tSalidaFin_ind) ?>, "rgba(231,76,60,1)");
-            })();
+            const labels = <?= json_encode($labels) ?>;
+            function crearGrafIndividual(id, datos, tendencia, color) {
+                const canvas = document.getElementById(id);
+                if (!canvas) return;
+                new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            { label: 'Horario', data: datos, borderColor: color, backgroundColor: color.replace('1)', '.15)'), tension: 0.35, pointRadius: 4, borderWidth: 2, fill: true },
+                            { label: 'Tendencia', data: tendencia, borderColor: 'rgba(241,196,15,1)', borderDash: [6,6], tension: 0, pointRadius: 0, borderWidth: 3, fill: false }
+                        ]
+                    },
+                    options: { responsive: false, plugins: { legend: { display: true } }, scales: { y: { ticks: { callback: function(v) {
+                        let h = Math.floor(v), m = Math.round((v - h) * 60), ampm = h >= 12 ? 'PM' : 'AM', h12 = h % 12 || 12;
+                        return h12 + ":" + String(m).padStart(2,'0') + " " + ampm;
+                    } } } } }
+                });
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+                crearGrafIndividual("grafEntrada", <?= json_encode($gEntrada) ?>, <?= json_encode($tEntrada) ?>, "rgba(52,152,219,1)");
+                crearGrafIndividual("grafEntradaAlmuerzo", <?= json_encode($gEntradaAlm) ?>, <?= json_encode($tEntradaAlm) ?>, "rgba(52,152,219,1)");
+                crearGrafIndividual("grafSalidaAlmuerzo", <?= json_encode($gSalidaAlm) ?>, <?= json_encode($tSalidaAlm) ?>, "rgba(231,76,60,1)");
+                crearGrafIndividual("grafSalidaFinal", <?= json_encode($gSalidaFin) ?>, <?= json_encode($tSalidaFin) ?>, "rgba(231,76,60,1)");
+            });
             </script>
             <?php endif; ?>
-        <?php endforeach; ?>
-        
-    <?php else: ?>
-        <!-- Modo individual -->
-        <?php if($totalMarcajes>0): ?>
-        
-        <div class="empleado-sticky-header">
-            <div class="empleado-info">
-                <h2 class="empleado-nombre"><span>👤</span> <?= htmlspecialchars($emp['nombre']." ".$emp['apellido']) ?></h2>
-                <p class="empleado-detalles">
-                    <strong>Código:</strong> <?= htmlspecialchars($emp['codigo_biometrico'] ?? '') ?> | 
-                    <strong>Puesto:</strong> <?= htmlspecialchars($emp['puesto'] ?? '') ?> | 
-                    <strong>Horario:</strong> <?= htmlspecialchars($emp['horario'] ?? 'Horario General') ?>
-                </p>
-            </div>
-            <div class="resumen-sticky-grid">
-                <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Periodo</div><div class="resumen-sticky-valor"><?= $periodoTexto ?></div></div>
-                <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Tardanza</div><div class="resumen-sticky-valor"><?= $formatoTarde ?></div></div>
-                <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Días</div><div class="resumen-sticky-valor"><?= $diasTrabajados ?>/<?= $dias_laborables_periodo ?></div></div>
-                <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Marcajes</div><div class="resumen-sticky-valor"><?= $totalMarcajes ?></div></div>
-            </div>
-        </div>
-        
-        <table width="100%">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Día</th>
-                    <th>Fecha</th>
-                    <th>Entrada</th>
-                    <th>Salida Alm</th>
-                    <th>Entrada Alm</th>
-                    <th>Salida</th>
-                </tr>
-            </thead>
-            <tbody>
-            <?php $i=1; foreach($fechas_laborables as $fecha): ?>
-                <?php
-                $tiene_marcajes = isset($porDia[$fecha]);
-                $situacion = $situaciones[$fecha] ?? '';
-                $clase_situacion = claseSituacion($situacion, $personalizaciones);
-                $situacion_formateada = mostrarSituacion($situacion, $personalizaciones);
-                // Usar la nueva función para días completos
-                $dia_completo = obtenerDiaCompleto($fecha);
-                $fecha_formateada = formatearFechaMes($fecha);
-                $editado = $marcajesEditados[$fecha] ?? false;
-                $clase_editado = $editado ? 'editado-manual' : '';
-                ?>
-                
-                <?php if($tiene_marcajes): 
-                    $dia = $porDia[$fecha];
-                    $entrada_vacia = empty($dia['entrada_manana']);
-                    $salida_alm_vacia = empty($dia['salida_almuerzo']);
-                    $entrada_alm_vacia = empty($dia['entrada_almuerzo']);
-                    $salida_fin_vacia = empty($dia['salida_final']);
-                ?>
-                    <tr class="<?= $clase_situacion ?>">
-                        <td><?= $i++ ?></td>
-                        <td><strong><?= $dia_completo ?></strong></td>
-                        <td><?= $fecha_formateada ?></td>
-                        <td class="<?= $entrada_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_manana', $dia['entrada_manana'] ?? '') . ' ' . ($entrada_vacia ? '' : $clase_editado) ?>">
-                            <?php 
-                            if ($entrada_vacia && $situacion) {
-                                echo $situacion_formateada;
-                            } elseif ($entrada_vacia) {
-                                echo '<span class="faltante-texto">No marcó</span>';
-                            } else {
-                                echo formatearHora12($dia['entrada_manana']);
-                            }
-                            ?>
-                        </td>
-                        <td class="<?= $salida_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_almuerzo', $dia['salida_almuerzo'] ?? '') . ' ' . ($salida_alm_vacia ? '' : $clase_editado) ?>">
-                            <?php 
-                            if ($salida_alm_vacia && $situacion) {
-                                echo $situacion_formateada;
-                            } elseif ($salida_alm_vacia) {
-                                echo '<span class="faltante-texto">No marcó</span>';
-                            } else {
-                                echo formatearHora12($dia['salida_almuerzo']);
-                            }
-                            ?>
-                        </td>
-                        <td class="<?= $entrada_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_almuerzo', $dia['entrada_almuerzo'] ?? '') . ' ' . ($entrada_alm_vacia ? '' : $clase_editado) ?>">
-                            <?php 
-                            if ($entrada_alm_vacia && $situacion) {
-                                echo $situacion_formateada;
-                            } elseif ($entrada_alm_vacia) {
-                                echo '<span class="faltante-texto">No marcó</span>';
-                            } else {
-                                echo formatearHora12($dia['entrada_almuerzo']);
-                            }
-                            ?>
-                        </td>
-                        <td class="<?= $salida_fin_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_final', $dia['salida_final'] ?? '') . ' ' . ($salida_fin_vacia ? '' : $clase_editado) ?>">
-                            <?php 
-                            if ($salida_fin_vacia && $situacion) {
-                                echo $situacion_formateada;
-                            } elseif ($salida_fin_vacia) {
-                                echo '<span class="faltante-texto">No marcó</span>';
-                            } else {
-                                echo formatearHora12($dia['salida_final']);
-                            }
-                            ?>
-                        </td>
-                    </tr>
-                <?php else: ?>
-                    <tr class="<?= $clase_situacion ?: 'faltante' ?>">
-                        <td><?= $i++ ?></td>
-                        <td><strong><?= $dia_completo ?></strong></td>
-                        <td><?= $fecha_formateada ?></td>
-                        <td colspan="4" style="text-align: center;">
-                            <?= $situacion_formateada ?: '<span class="faltante-texto">No marcó</span>' ?>
-                        </td>
-                    </tr>
-                <?php endif; ?>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        
-        <?php if($totalMarcajes>0 && count($labels)>0): ?>
-        <div class="graficas-container">
-            <div class="graficas-titulo">📊 Comportamiento - <?= htmlspecialchars(explode(' ', $emp['nombre'])[0]) ?></div>
-            <div class="graficas-grid">
-                <div class="grafica-item"><h4>Entrada 8AM</h4><div class="promedio-badge">⏱ Promedio: <?= $promEntradaFormato ?></div><canvas id="grafEntrada" width="360" height="200"></canvas></div>
-                <div class="grafica-item"><h4>Salida 1PM</h4><div class="promedio-badge">⏱ Promedio: <?= $promSalidaAlmFormato ?></div><canvas id="grafSalidaAlmuerzo" width="360" height="200"></canvas></div>
-                <div class="grafica-item"><h4>Entrada 2PM</h4><div class="promedio-badge">⏱ Promedio: <?= $promEntradaAlmFormato ?></div><canvas id="grafEntradaAlmuerzo" width="360" height="200"></canvas></div>
-                <div class="grafica-item"><h4>Salida 5PM</h4><div class="promedio-badge">⏱ Promedio: <?= $promSalidaFinFormato ?></div><canvas id="grafSalidaFinal" width="360" height="200"></canvas></div>
-            </div>
-        </div>
-        
-        <script>
-        const labels = <?= json_encode($labels) ?>;
-        function crearGrafIndividual(id, datos, tendencia, color) {
-            const canvas = document.getElementById(id);
-            if (!canvas) return;
-            new Chart(canvas, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Horario', data: datos, borderColor: color, backgroundColor: color.replace('1)', '.15)'), tension: 0.35, pointRadius: 4, borderWidth: 2, fill: true },
-                        { label: 'Tendencia', data: tendencia, borderColor: 'rgba(241,196,15,1)', borderDash: [6,6], tension: 0, pointRadius: 0, borderWidth: 3, fill: false }
-                    ]
-                },
-                options: { responsive: false, plugins: { legend: { display: true } }, scales: { y: { ticks: { callback: function(v) {
-                    let h = Math.floor(v), m = Math.round((v - h) * 60), ampm = h >= 12 ? 'PM' : 'AM', h12 = h % 12 || 12;
-                    return h12 + ":" + String(m).padStart(2,'0') + " " + ampm;
-                } } } } }
-            });
-        }
-        document.addEventListener('DOMContentLoaded', function() {
-            crearGrafIndividual("grafEntrada", <?= json_encode($gEntrada) ?>, <?= json_encode($tEntrada) ?>, "rgba(52,152,219,1)");
-            crearGrafIndividual("grafEntradaAlmuerzo", <?= json_encode($gEntradaAlm) ?>, <?= json_encode($tEntradaAlm) ?>, "rgba(52,152,219,1)");
-            crearGrafIndividual("grafSalidaAlmuerzo", <?= json_encode($gSalidaAlm) ?>, <?= json_encode($tSalidaAlm) ?>, "rgba(231,76,60,1)");
-            crearGrafIndividual("grafSalidaFinal", <?= json_encode($gSalidaFin) ?>, <?= json_encode($tSalidaFin) ?>, "rgba(231,76,60,1)");
-        });
-        </script>
-        <?php endif; ?>
+        </div> <!-- Cierra empleado-seccion -->
         
         <?php else: ?>
-        <div class="msg-vacio">No hay datos registrados en el rango seleccionado.</div>
+        <div class="msg-vacio no-print"> No hay datos registrados en el rango seleccionado. </div>
         <?php endif; ?>
     <?php endif; ?>
 <?php endif; ?>
@@ -1534,4 +1664,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
 </div>
 
 </body>
+
 </html>
+
+

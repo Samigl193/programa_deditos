@@ -13,12 +13,12 @@ $id_rol = $_SESSION['id_rol'] ?? 0;
 $es_master = ($id_rol == 1); // MASTER
 $es_admin = ($id_rol == 2);  // ADMIN
 
-// Consulta de empleados
+//  El cambio para el orden funciona con esta consulta  ordenar por código_biometrico ASCENDENTE (menor a mayor)
 $sql = "
 SELECT e.*, h.nombre AS horario
 FROM empleados e
 LEFT JOIN horarios h ON e.id_horario = h.id_horario
-ORDER BY e.id_empleado DESC
+ORDER BY CAST(e.codigo_biometrico AS UNSIGNED) ASC
 ";
 
 $res = $conexion->query($sql);
@@ -74,16 +74,17 @@ if (!$res) {
 <!-- Mensaje informativo solo para ADMIN -->
 <?php if($es_admin): ?>
 <div style="background-color: #e8f5e8; color: #2e7d32; padding: 10px; border-radius: 4px; margin-bottom: 15px; text-align: center; border-left: 4px solid #2e7d32;">
-    <strong>👤 Modo Administrador</strong> - No tienes permisos para eliminar empleados. 
-    Si necesitas eliminar algún registro, contacta al Master.
+    <strong>👤 Modo Administrador</strong> 
 </div>
 <?php endif; ?>
+
+
 
 <table>
 <thead>
 <tr>
 <th></th>
-<th>Código</th>
+<th>Código <span style="font-size: 10px;"></span></th>
 <th>Nombre</th>
 <th>Puesto</th>
 <th>Horario</th>
@@ -390,3 +391,20 @@ td{
 
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

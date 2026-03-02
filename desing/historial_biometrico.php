@@ -28,7 +28,7 @@ if(!$res){
 <body>
 
 <div class="panel">
-<h2>📂 Historial de archivos importados</h2>
+<h2>✅ Historial de archivos importados Correctamente </h2>
 
 <table>
 <tr>
@@ -126,3 +126,19 @@ a.btn-del{
     background:#2c7be5;
 }
 </style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
