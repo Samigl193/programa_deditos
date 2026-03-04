@@ -229,6 +229,11 @@ function clasificarMarcajes($regs) {
             $porDia[$fecha]['entrada_almuerzo'] = $horaStr;
         } elseif ($hora >= strtotime("16:00") && $hora <= strtotime("18:30")) {
             $porDia[$fecha]['salida_final'] = $horaStr;
+        } elseif ($hora < strtotime("07:00:00")) {
+            // Si el marcaje es antes de las 7 AM, lo consideramos como entrada temprana
+            if (!$porDia[$fecha]['entrada_manana']) {
+                $porDia[$fecha]['entrada_manana'] = $horaStr;
+            }
         }
     }
     
@@ -373,15 +378,17 @@ function tendencia($arr){
     return $res;
 }
 
+// FUNCIÓN CORREGIDA: Ahora maneja correctamente los marcajes antes de las 7 AM
 function determinarClaseMarcaje($tipo, $valor) {
     if (empty($valor)) return "faltante";
     
     $hora = strtotime($valor);
     
     if ($tipo == 'entrada_manana') {
-        if ($hora < strtotime("07:00:00")) return "naranja";
-        if ($hora >= strtotime("09:00:00")) return "tarde9";
-        if ($hora > strtotime("08:00:00")) return "tarde";
+        if ($hora < strtotime("07:00:00")) return "naranja"; // Llegó antes de las 7
+        if ($hora >= strtotime("09:00:00")) return "tarde9"; // Llegó después de las 9
+        if ($hora > strtotime("08:00:00")) return "tarde"; // Llegó después de las 8 pero antes de las 9
+        return ""; // Llegó en horario normal (7:00 - 8:00)
     }
     
     if ($tipo == 'entrada_almuerzo' && $hora > strtotime("14:00:00")) return "tarde";
@@ -394,9 +401,10 @@ function determinarClaseMarcaje($tipo, $valor) {
     return "";
 }
 
+// FUNCIÓN MODIFICADA: Ahora incluye segundos en el formato de hora
 function formatearHora12($hora) {
     if (empty($hora)) return '';
-    return date("h:i A", strtotime($hora));
+    return date("h:i:s A", strtotime($hora)); 
 }
 
 function mostrarSituacion($situacion, $personalizaciones) {
@@ -948,7 +956,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
         border-collapse: collapse;
     }
     
-    /* LEYENDA MODIFICADA - AHORA EN UNA SOLA FILA */
+
     .leyenda-centrada {
         display: flex;
         flex-wrap: nowrap;
@@ -988,7 +996,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
         text-align: center;
     }
     
-    /* NUEVOS ESTILOS PARA IMPRESIÓN */
+
     .page-break {
         page-break-before: always;
     }
@@ -1076,7 +1084,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
             padding: 0; 
             margin-top: 0; 
         }
-        /* ELIMINADO: header { display: none !important; } - AHORA SE MUESTRA */
+
         header {
             display: flex !important;
             margin-bottom: 20px;
@@ -1158,7 +1166,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
 
 <div class="reporte">
 
-<!-- Quitado: class="no-print" para que aparezca en impresión -->
+
 <header>
 <img src="../img/deditos.png">
 <div>
@@ -1172,8 +1180,13 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
 
 <form method="GET" class="filtro filtro-flex no-print">
 
-<!-- LEYENDA MODIFICADA - AHORA EN UNA SOLA FILA -->
+<!-- LEYENDA MODIFICADA  -->
 <div class="leyenda-centrada">
+    <div>
+        <span style="width: 14px; height: 14px; background: #ebc094; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
+        <span>Llegó antes (antes 7:00)</span>
+    </div>
+    
     <div>
         <span style="width: 14px; height: 14px; background: #ed8e6e; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
         <span>Después 08:00</span>
@@ -1192,11 +1205,6 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
     <div>
         <span style="width: 14px; height: 14px; background: #9ce79c; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
         <span>Salió después</span>
-    </div>
-    
-    <div>
-        <span style="width: 14px; height: 14px; background: #ebc094; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
-        <span>Llegó antes</span>
     </div>
     
     <div>
@@ -1666,5 +1674,3 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
 </body>
 
 </html>
-
-
