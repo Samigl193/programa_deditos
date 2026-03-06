@@ -13,6 +13,17 @@ function tieneMarcajesModificados($id_empleado, $fecha, $conexion) {
     return $row['total'] > 0;
 }
 
+// Función para verificar si un marcaje específico fue editado
+function marcajeFueEditado($id_registro, $conexion) {
+    $sql = "SELECT COUNT(*) as total FROM historial_marcajes WHERE id_registro = ?";
+    $stmt = $conexion->prepare($sql);
+    $stmt->bind_param("i", $id_registro);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    return $row['total'] > 0;
+}
+
 // Obtener personalizaciones de situaciones
 $personalizaciones = [];
 $result_pers = $conexion->query("SELECT * FROM personalizacion_situaciones");
@@ -122,7 +133,8 @@ function obtenerDiaCompleto($fecha) {
     return $dias[$dia_numero];
 }
 
-function formatearFechaMes($fecha) {
+// FUNCIÓN PARA FORMATO CORTO (con abreviatura de mes) - PARA EL ENCABEZADO
+function formatearFechaCorto($fecha) {
     $timestamp = strtotime($fecha);
     $dia = date('d', $timestamp);
     $mes_numero = date('n', $timestamp);
@@ -132,6 +144,16 @@ function formatearFechaMes($fecha) {
     $mes_abrev = $meses[$mes_numero - 1];
     
     return $dia . '/' . $mes_abrev . '/' . $anio;
+}
+
+// FUNCIÓN PARA FORMATO LARGO (con mes numérico) - PARA LA TABLA
+function formatearFechaLarga($fecha) {
+    $timestamp = strtotime($fecha);
+    $dia = date('d', $timestamp);
+    $mes = date('m', $timestamp);
+    $anio = date('Y', $timestamp);
+    
+    return $dia . '/' . $mes . '/' . $anio;
 }
 
 function formato_12h($hora_decimal) {
@@ -215,25 +237,42 @@ function clasificarMarcajes($regs) {
                 'salida_almuerzo'  => null,
                 'entrada_almuerzo' => null,
                 'salida_final'     => null,
-                'archivo'          => $r['id_archivo']
+                'archivo'          => $r['id_archivo'],
+                'id_registro_entrada' => null,
+                'id_registro_salida_alm' => null,
+                'id_registro_entrada_alm' => null,
+                'id_registro_salida_fin' => null
             ];
         }
         
         if ($hora >= strtotime("07:00") && $hora <= strtotime("10:00")) {
             if (!$porDia[$fecha]['entrada_manana']) {
                 $porDia[$fecha]['entrada_manana'] = $horaStr;
+                $porDia[$fecha]['id_registro_entrada'] = $r['id_registro'];
             }
         } elseif ($hora >= strtotime("12:00") && $hora <= strtotime("13:30")) {
             $porDia[$fecha]['salida_almuerzo'] = $horaStr;
+            $porDia[$fecha]['id_registro_salida_alm'] = $r['id_registro'];
         } elseif ($hora >= strtotime("13:30") && $hora <= strtotime("15:00")) {
             $porDia[$fecha]['entrada_almuerzo'] = $horaStr;
+            $porDia[$fecha]['id_registro_entrada_alm'] = $r['id_registro'];
         } elseif ($hora >= strtotime("16:00") && $hora <= strtotime("18:30")) {
             $porDia[$fecha]['salida_final'] = $horaStr;
+            $porDia[$fecha]['id_registro_salida_fin'] = $r['id_registro'];
         } elseif ($hora < strtotime("07:00:00")) {
             // Si el marcaje es antes de las 7 AM, lo consideramos como entrada temprana
             if (!$porDia[$fecha]['entrada_manana']) {
                 $porDia[$fecha]['entrada_manana'] = $horaStr;
+                $porDia[$fecha]['id_registro_entrada'] = $r['id_registro'];
             }
+        } elseif ($hora > strtotime("15:00") && $hora < strtotime("16:00")) {
+            // Marcajes entre las 15:00 y 16:00 - los consideramos como salida temprana
+            $porDia[$fecha]['salida_final'] = $horaStr;
+            $porDia[$fecha]['id_registro_salida_fin'] = $r['id_registro'];
+        } elseif ($hora > strtotime("18:30") && $hora <= strtotime("23:59")) {
+            // Marcajes después de las 18:30 - los consideramos como salida tarde
+            $porDia[$fecha]['salida_final'] = $horaStr;
+            $porDia[$fecha]['id_registro_salida_fin'] = $r['id_registro'];
         }
     }
     
@@ -308,6 +347,7 @@ function obtenerDatosEmpleado($id_empleado, $conexion, $fecha_inicio, $fecha_fin
     $gEntrada = $gSalidaAlm = $gEntradaAlm = $gSalidaFin = [];
     $situaciones = [];
     $marcajesEditados = [];
+    $marcajesEditadosPorId = [];
     
     if($mostrar){
         $regs = procesarRegistrosEmpleado($id_empleado, $conexion, $fecha_inicio, $fecha_fin);
@@ -320,6 +360,22 @@ function obtenerDatosEmpleado($id_empleado, $conexion, $fecha_inicio, $fecha_fin
         // Verificar qué días tienen marcajes editados
         foreach (array_keys($porDia) as $fecha) {
             $marcajesEditados[$fecha] = tieneMarcajesModificados($id_empleado, $fecha, $conexion);
+        }
+        
+        // Verificar qué marcajes específicos fueron editados
+        foreach ($porDia as $fecha => $datos) {
+            if ($datos['id_registro_entrada']) {
+                $marcajesEditadosPorId[$datos['id_registro_entrada']] = marcajeFueEditado($datos['id_registro_entrada'], $conexion);
+            }
+            if ($datos['id_registro_salida_alm']) {
+                $marcajesEditadosPorId[$datos['id_registro_salida_alm']] = marcajeFueEditado($datos['id_registro_salida_alm'], $conexion);
+            }
+            if ($datos['id_registro_entrada_alm']) {
+                $marcajesEditadosPorId[$datos['id_registro_entrada_alm']] = marcajeFueEditado($datos['id_registro_entrada_alm'], $conexion);
+            }
+            if ($datos['id_registro_salida_fin']) {
+                $marcajesEditadosPorId[$datos['id_registro_salida_fin']] = marcajeFueEditado($datos['id_registro_salida_fin'], $conexion);
+            }
         }
         
         $situaciones = obtenerSituacionesEmpleado($id_empleado, $conexion, $fecha_inicio, $fecha_fin);
@@ -347,7 +403,8 @@ function obtenerDatosEmpleado($id_empleado, $conexion, $fecha_inicio, $fecha_fin
         'gEntradaAlm' => $gEntradaAlm,
         'gSalidaFin' => $gSalidaFin,
         'situaciones' => $situaciones,
-        'marcajesEditados' => $marcajesEditados
+        'marcajesEditados' => $marcajesEditados,
+        'marcajesEditadosPorId' => $marcajesEditadosPorId
     ];
 }
 
@@ -396,6 +453,7 @@ function determinarClaseMarcaje($tipo, $valor) {
     if ($tipo == 'salida_final') {
         if ($hora > strtotime("18:00:00")) return "verde";
         if ($hora < strtotime("16:00:00")) return "morado";
+        if ($hora < strtotime("17:00:00")) return "morado"; // Salió antes de las 5
     }
     
     return "";
@@ -437,6 +495,7 @@ if (!$modo_multiple) {
     $gSalidaFin = $datos_empleado['gSalidaFin'];
     $situaciones = $datos_empleado['situaciones'];
     $marcajesEditados = $datos_empleado['marcajesEditados'];
+    $marcajesEditadosPorId = $datos_empleado['marcajesEditadosPorId'] ?? [];
     
     if($mostrar && $totalMarcajes > 0){
         $tEntrada = tendencia($gEntrada);
@@ -472,9 +531,13 @@ $dias_laborables_info = calcular_dias_laborables($fecha_inicio, $fecha_fin);
 $dias_laborables_periodo = $dias_laborables_info['total'];
 $fechas_laborables = $dias_laborables_info['fechas'];
 
-$fecha_inicio_formateada = formatearFechaMes($fecha_inicio);
-$fecha_fin_formateada = formatearFechaMes($fecha_fin);
-$periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
+// PARA EL ENCABEZADO: Usamos formato corto (con abreviatura)
+$fecha_inicio_corta = formatearFechaCorto($fecha_inicio);
+$fecha_fin_corta = formatearFechaCorto($fecha_fin);
+$periodoTexto = $fecha_inicio_corta . " al " . $fecha_fin_corta;
+
+// PARA LA TABLA: Usamos formato largo (con mes numérico)
+// Esto se aplica directamente en el bucle
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -496,12 +559,31 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
     .editado-manual {
         position: relative;
         cursor: help;
+        padding-right: 20px !important;
     }
     .editado-manual::after {
         content: "✏️";
         font-size: 12px;
-        margin-left: 5px;
-        opacity: 0.7;
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        opacity: 0.9;
+        z-index: 5;
+    }
+    
+    /* Estilo para situaciones editadas */
+    .situacion-editada {
+        position: relative;
+        cursor: help;
+    }
+    .situacion-editada::after {
+        content: "✏️";
+        font-size: 12px;
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        opacity: 0.9;
+        z-index: 5;
     }
     
     /* Estilo para el texto en celdas faltantes */
@@ -857,12 +939,23 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
     
     header {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 20px;
+        justify-content: center;
+        text-align: center;
+        margin-bottom: 20px;
     }
     
     header img {
-        width: 200px;
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+    }
+    
+    /* Estilos para el membrete de texto como respaldo */
+    .membrete-texto {
+        display: none;
     }
     
     hr {
@@ -1087,10 +1180,16 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
 
         header {
             display: flex !important;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             margin-bottom: 20px;
         }
         header img {
-            width: 180px;
+            max-width: 80%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
         }
         hr {
             display: none !important;
@@ -1166,14 +1265,16 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
 
 <div class="reporte">
 
-
+<!-- NUEVO MEMBRETE CENTRADO -->
 <header>
-<img src="../img/deditos.png">
-<div>
-<h1>VIÑA</h1>
-<p>AUDIO · VIDEO · MUSICA · EDUCACIÓN · DRAMA</p>
-<small>Sololá, Guatemala</small>
-</div>
+    <img src="../img/deditos1.png" alt="VIÑA - Asociación">
+    <!-- Texto de respaldo si la imagen no carga -->
+    <div class="membrete-texto">
+        <h1>VIÑA</h1>
+        <p>AUDIO · VIDEO · MÚSICA · EDUCACIÓN · DRAMA</p>
+        <p>9a Av. 'B' 7-19 Zona 2, 07001 Sololá, Guatemala</p>
+        <p>Teléfonos: 7762-3231 · 7762-4244 · info@vinyastudios.org</p>
+    </div>
 </header>
 
 <hr class="no-print">
@@ -1204,12 +1305,12 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
     
     <div>
         <span style="width: 14px; height: 14px; background: #9ce79c; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
-        <span>Salió después</span>
+        <span>Salió después (después 18:00)</span>
     </div>
     
     <div>
         <span style="width: 14px; height: 14px; background: #ccb8ef; border-radius: 3px; border: 1px solid #aaa; display: inline-block;"></span>
-        <span>Salió antes</span>
+        <span>Salió antes (antes 16:00)</span>
     </div>
     
     <div>
@@ -1275,7 +1376,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
         <!-- Encabezado del reporte múltiple (solo visible en pantalla, no en impresión) -->
         <div class="no-print" style="background: #0e838e; color: white; padding: 12px 18px; border-radius: 6px; margin-bottom: 25px;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                <div><strong>REPORTE MÚLTIPLE</strong> <span><?= $fecha_inicio_formateada ?> - <?= $fecha_fin_formateada ?></span></div>
+                <div><strong>REPORTE MÚLTIPLE</strong> <span><?= $fecha_inicio_corta ?> - <?= $fecha_fin_corta ?></span></div>
                 <div><span style="background: rgba(0,0,0,0.2); padding: 5px 12px; border-radius: 20px;"><?= $total_empleados ?> empleado(s)</span></div>
             </div>
             <div style="margin-top: 8px; background: rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 4px;">
@@ -1290,6 +1391,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
             $emp_nombre_completo = $emp['nombre']." ".$emp['apellido'];
             $situaciones_emp = $emp_data['situaciones'];
             $marcajesEditados_emp = $emp_data['marcajesEditados'];
+            $marcajesEditadosPorId_emp = $emp_data['marcajesEditadosPorId'] ?? [];
             
             $tEntrada_ind = tendencia($emp_data['gEntrada']);
             $tSalidaAlm_ind = tendencia($emp_data['gSalidaAlm']);
@@ -1322,7 +1424,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                     <div class="resumen-sticky-grid">
                         <div class="resumen-sticky-item">
                             <div class="resumen-sticky-titulo">Periodo</div>
-                            <div class="resumen-sticky-valor"><?= $periodoTexto ?></div>
+                            <div class="resumen-sticky-valor"><?= $fecha_inicio_corta ?> - <?= $fecha_fin_corta ?></div>
                         </div>
                         <div class="resumen-sticky-item">
                             <div class="resumen-sticky-titulo">Tardanza</div>
@@ -1360,7 +1462,8 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                         $situacion_formateada = mostrarSituacion($situacion, $personalizaciones);
                         // Usar la nueva función para días completos
                         $dia_completo = obtenerDiaCompleto($fecha);
-                        $fecha_formateada = formatearFechaMes($fecha);
+                        // EN LA TABLA: Usamos formato largo (con mes numérico)
+                        $fecha_formateada_larga = formatearFechaLarga($fecha);
                         $editado = $marcajesEditados_emp[$fecha] ?? false;
                         $clase_editado = $editado ? 'editado-manual' : '';
                         ?>
@@ -1371,12 +1474,18 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                             $salida_alm_vacia = empty($dia['salida_almuerzo']);
                             $entrada_alm_vacia = empty($dia['entrada_almuerzo']);
                             $salida_fin_vacia = empty($dia['salida_final']);
+                            
+                            // Verificar si cada marcaje específico fue editado
+                            $entrada_editada = !$entrada_vacia && ($marcajesEditadosPorId_emp[$dia['id_registro_entrada']] ?? false);
+                            $salida_alm_editada = !$salida_alm_vacia && ($marcajesEditadosPorId_emp[$dia['id_registro_salida_alm']] ?? false);
+                            $entrada_alm_editada = !$entrada_alm_vacia && ($marcajesEditadosPorId_emp[$dia['id_registro_entrada_alm']] ?? false);
+                            $salida_fin_editada = !$salida_fin_vacia && ($marcajesEditadosPorId_emp[$dia['id_registro_salida_fin']] ?? false);
                         ?>
                             <tr class="<?= $clase_situacion ?>">
                                 <td><?= $i++ ?></td>
                                 <td><strong><?= $dia_completo ?></strong></td>
-                                <td><?= $fecha_formateada ?></td>
-                                <td class="<?= $entrada_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_manana', $dia['entrada_manana'] ?? '') . ' ' . ($entrada_vacia ? '' : $clase_editado) ?>">
+                                <td><?= $fecha_formateada_larga ?></td>
+                                <td class="<?= $entrada_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_manana', $dia['entrada_manana'] ?? '') . ' ' . ($entrada_editada ? 'editado-manual' : '') ?>">
                                     <?php 
                                     if ($entrada_vacia && $situacion) {
                                         echo $situacion_formateada;
@@ -1387,7 +1496,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                                     }
                                     ?>
                                 </td>
-                                <td class="<?= $salida_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_almuerzo', $dia['salida_almuerzo'] ?? '') . ' ' . ($salida_alm_vacia ? '' : $clase_editado) ?>">
+                                <td class="<?= $salida_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_almuerzo', $dia['salida_almuerzo'] ?? '') . ' ' . ($salida_alm_editada ? 'editado-manual' : '') ?>">
                                     <?php 
                                     if ($salida_alm_vacia && $situacion) {
                                         echo $situacion_formateada;
@@ -1398,7 +1507,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                                     }
                                     ?>
                                 </td>
-                                <td class="<?= $entrada_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_almuerzo', $dia['entrada_almuerzo'] ?? '') . ' ' . ($entrada_alm_vacia ? '' : $clase_editado) ?>">
+                                <td class="<?= $entrada_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_almuerzo', $dia['entrada_almuerzo'] ?? '') . ' ' . ($entrada_alm_editada ? 'editado-manual' : '') ?>">
                                     <?php 
                                     if ($entrada_alm_vacia && $situacion) {
                                         echo $situacion_formateada;
@@ -1409,7 +1518,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                                     }
                                     ?>
                                 </td>
-                                <td class="<?= $salida_fin_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_final', $dia['salida_final'] ?? '') . ' ' . ($salida_fin_vacia ? '' : $clase_editado) ?>">
+                                <td class="<?= $salida_fin_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_final', $dia['salida_final'] ?? '') . ' ' . ($salida_fin_editada ? 'editado-manual' : '') ?>">
                                     <?php 
                                     if ($salida_fin_vacia && $situacion) {
                                         echo $situacion_formateada;
@@ -1425,7 +1534,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                             <tr class="<?= $clase_situacion ?: 'faltante' ?>">
                                 <td><?= $i++ ?></td>
                                 <td><strong><?= $dia_completo ?></strong></td>
-                                <td><?= $fecha_formateada ?></td>
+                                <td><?= $fecha_formateada_larga ?></td>
                                 <td colspan="4" style="text-align: center;">
                                     <?= $situacion_formateada ?: '<span class="faltante-texto">No marcó</span>' ?>
                                 </td>
@@ -1509,7 +1618,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                     </p>
                 </div>
                 <div class="resumen-sticky-grid">
-                    <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Periodo</div><div class="resumen-sticky-valor"><?= $periodoTexto ?></div></div>
+                    <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Periodo</div><div class="resumen-sticky-valor"><?= $fecha_inicio_corta ?> - <?= $fecha_fin_corta ?></div></div>
                     <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Tardanza</div><div class="resumen-sticky-valor"><?= $formatoTarde ?></div></div>
                     <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Días</div><div class="resumen-sticky-valor"><?= $diasTrabajados ?>/<?= $dias_laborables_periodo ?></div></div>
                     <div class="resumen-sticky-item"><div class="resumen-sticky-titulo">Marcajes</div><div class="resumen-sticky-valor"><?= $totalMarcajes ?></div></div>
@@ -1537,9 +1646,24 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                     $situacion_formateada = mostrarSituacion($situacion, $personalizaciones);
                     // Usar la nueva función para días completos
                     $dia_completo = obtenerDiaCompleto($fecha);
-                    $fecha_formateada = formatearFechaMes($fecha);
+                    // EN LA TABLA: Usamos formato largo (con mes numérico)
+                    $fecha_formateada_larga = formatearFechaLarga($fecha);
                     $editado = $marcajesEditados[$fecha] ?? false;
                     $clase_editado = $editado ? 'editado-manual' : '';
+                    
+                    // Verificar si cada marcaje específico fue editado
+                    $entrada_editada = false;
+                    $salida_alm_editada = false;
+                    $entrada_alm_editada = false;
+                    $salida_fin_editada = false;
+                    
+                    if ($tiene_marcajes) {
+                        $dia = $porDia[$fecha];
+                        $entrada_editada = !empty($dia['id_registro_entrada']) && ($marcajesEditadosPorId[$dia['id_registro_entrada']] ?? false);
+                        $salida_alm_editada = !empty($dia['id_registro_salida_alm']) && ($marcajesEditadosPorId[$dia['id_registro_salida_alm']] ?? false);
+                        $entrada_alm_editada = !empty($dia['id_registro_entrada_alm']) && ($marcajesEditadosPorId[$dia['id_registro_entrada_alm']] ?? false);
+                        $salida_fin_editada = !empty($dia['id_registro_salida_fin']) && ($marcajesEditadosPorId[$dia['id_registro_salida_fin']] ?? false);
+                    }
                     ?>
                     
                     <?php if($tiene_marcajes): 
@@ -1552,8 +1676,8 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                         <tr class="<?= $clase_situacion ?>">
                             <td><?= $i++ ?></td>
                             <td><strong><?= $dia_completo ?></strong></td>
-                            <td><?= $fecha_formateada ?></td>
-                            <td class="<?= $entrada_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_manana', $dia['entrada_manana'] ?? '') . ' ' . ($entrada_vacia ? '' : $clase_editado) ?>">
+                            <td><?= $fecha_formateada_larga ?></td>
+                            <td class="<?= $entrada_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_manana', $dia['entrada_manana'] ?? '') . ' ' . ($entrada_editada ? 'editado-manual' : '') ?>">
                                 <?php 
                                 if ($entrada_vacia && $situacion) {
                                     echo $situacion_formateada;
@@ -1564,7 +1688,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                                 }
                                 ?>
                             </td>
-                            <td class="<?= $salida_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_almuerzo', $dia['salida_almuerzo'] ?? '') . ' ' . ($salida_alm_vacia ? '' : $clase_editado) ?>">
+                            <td class="<?= $salida_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_almuerzo', $dia['salida_almuerzo'] ?? '') . ' ' . ($salida_alm_editada ? 'editado-manual' : '') ?>">
                                 <?php 
                                 if ($salida_alm_vacia && $situacion) {
                                     echo $situacion_formateada;
@@ -1575,7 +1699,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                                 }
                                 ?>
                             </td>
-                            <td class="<?= $entrada_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_almuerzo', $dia['entrada_almuerzo'] ?? '') . ' ' . ($entrada_alm_vacia ? '' : $clase_editado) ?>">
+                            <td class="<?= $entrada_alm_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('entrada_almuerzo', $dia['entrada_almuerzo'] ?? '') . ' ' . ($entrada_alm_editada ? 'editado-manual' : '') ?>">
                                 <?php 
                                 if ($entrada_alm_vacia && $situacion) {
                                     echo $situacion_formateada;
@@ -1586,7 +1710,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                                 }
                                 ?>
                             </td>
-                            <td class="<?= $salida_fin_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_final', $dia['salida_final'] ?? '') . ' ' . ($salida_fin_vacia ? '' : $clase_editado) ?>">
+                            <td class="<?= $salida_fin_vacia && $situacion ? $clase_situacion : determinarClaseMarcaje('salida_final', $dia['salida_final'] ?? '') . ' ' . ($salida_fin_editada ? 'editado-manual' : '') ?>">
                                 <?php 
                                 if ($salida_fin_vacia && $situacion) {
                                     echo $situacion_formateada;
@@ -1602,7 +1726,7 @@ $periodoTexto = $fecha_inicio_formateada . " al " . $fecha_fin_formateada;
                         <tr class="<?= $clase_situacion ?: 'faltante' ?>">
                             <td><?= $i++ ?></td>
                             <td><strong><?= $dia_completo ?></strong></td>
-                            <td><?= $fecha_formateada ?></td>
+                            <td><?= $fecha_formateada_larga ?></td>
                             <td colspan="4" style="text-align: center;">
                                 <?= $situacion_formateada ?: '<span class="faltante-texto">No marcó</span>' ?>
                             </td>

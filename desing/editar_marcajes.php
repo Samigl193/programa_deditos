@@ -221,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         
-        // ACTUALIZAR SITUACIÓN
+        // ACTUALIZAR SITUACIÓN - CORREGIDO PARA ACTUALIZACIÓN INMEDIATA
         if (isset($_POST['accion']) && $_POST['accion'] === 'actualizar_situacion') {
             $id_empleado = intval($_POST['id_empleado']);
             $fecha = $_POST['fecha'];
@@ -673,24 +673,43 @@ $situaciones_predefinidas = [
             gap: 10px;
         }
 
+        /* Estilos para alertas centradas */
         .alert {
-            padding: 15px 20px;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 30px;
             border-radius: 10px;
-            margin-bottom: 20px;
             display: flex;
             align-items: center;
-            gap: 10px;
-            animation: slideIn 0.3s ease;
+            gap: 15px;
+            animation: fadeIn 0.3s ease;
+            z-index: 9999;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            min-width: 300px;
+            max-width: 500px;
         }
 
-        @keyframes slideIn {
+        @keyframes fadeIn {
             from {
-                transform: translateY(-20px);
                 opacity: 0;
+                transform: translate(-50%, -60%);
             }
             to {
-                transform: translateY(0);
                 opacity: 1;
+                transform: translate(-50%, -50%);
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translate(-50%, -50%);
+            }
+            to {
+                opacity: 0;
+                transform: translate(-50%, -40%);
             }
         }
 
@@ -710,6 +729,12 @@ $situaciones_predefinidas = [
             background: #fff3cd;
             color: #856404;
             border-left: 5px solid #ffc107;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 5px solid #17a2b8;
         }
 
         .leyenda-colores {
@@ -972,12 +997,20 @@ $situaciones_predefinidas = [
 
         .situacion-actual {
             display: inline-block;
-            padding: 5px 10px;
+            padding: 8px 12px;
             border-radius: 4px;
             font-size: 12px;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             width: 100%;
+            border: 2px solid rgba(0,0,0,0.2);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .situacion-actual:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
 
         .modal {
@@ -1118,36 +1151,49 @@ $situaciones_predefinidas = [
 
         .toast {
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             background: white;
             color: #333;
-            padding: 15px 25px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 15px;
             z-index: 3000;
-            animation: slideInRight 0.3s ease;
+            animation: fadeIn 0.3s ease;
+            min-width: 300px;
+            max-width: 500px;
         }
 
         .toast.success {
             border-left: 5px solid #28a745;
+            background: #d4edda;
+            color: #155724;
         }
 
         .toast.error {
             border-left: 5px solid #dc3545;
+            background: #f8d7da;
+            color: #721c24;
         }
 
-        @keyframes slideInRight {
+        .toast.info {
+            border-left: 5px solid #17a2b8;
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        @keyframes fadeIn {
             from {
-                transform: translateX(100%);
                 opacity: 0;
+                transform: translate(-50%, -60%);
             }
             to {
-                transform: translateX(0);
                 opacity: 1;
+                transform: translate(-50%, -50%);
             }
         }
 
@@ -1232,6 +1278,11 @@ $situaciones_predefinidas = [
             .tabla-marcajes th {
                 top: 0;
             }
+            
+            .alert, .toast {
+                width: 90%;
+                min-width: auto;
+            }
         }
     </style>
     <?php 
@@ -1265,10 +1316,6 @@ $situaciones_predefinidas = [
 </head>
 <body>
     <div class="botones-fijos">
-        <button type="button" class="boton-minimal btn-guardar-minimal" id="btn-guardar" style="display: none;" onclick="guardarTodosLosCambios()">
-            <i class="fas fa-save"></i>
-            <span class="btn-texto">Guardar cambios</span>
-        </button>
         <a href="<?= $url_reporte ?>" class="boton-minimal btn-volver-minimal">
             <i class="fas fa-arrow-left"></i>
             <span class="btn-texto">Volver al reporte</span>
@@ -1291,6 +1338,14 @@ $situaciones_predefinidas = [
                 <i class="fas fa-check-circle"></i>
                 <?= $mensaje ?>
             </div>
+            <script>
+                setTimeout(() => {
+                    document.querySelector('.alert').style.animation = 'fadeOut 0.3s ease';
+                    setTimeout(() => {
+                        document.querySelector('.alert').style.display = 'none';
+                    }, 300);
+                }, 3000);
+            </script>
         <?php endif; ?>
 
         <?php if ($error): ?>
@@ -1298,6 +1353,14 @@ $situaciones_predefinidas = [
                 <i class="fas fa-exclamation-circle"></i>
                 <?= $error ?>
             </div>
+            <script>
+                setTimeout(() => {
+                    document.querySelector('.alert').style.animation = 'fadeOut 0.3s ease';
+                    setTimeout(() => {
+                        document.querySelector('.alert').style.display = 'none';
+                    }, 300);
+                }, 3000);
+            </script>
         <?php endif; ?>
 
         <?php if (!$tiene_datos): ?>
@@ -1489,543 +1552,644 @@ $situaciones_predefinidas = [
     <!-- Toast para notificaciones -->
     <div id="toast" class="toast" style="display: none;"></div>
 
-    <script>
-        const empleadosInfo = <?= json_encode($empleados_info) ?>;
-        const marcajesPorEmpleado = <?= json_encode($marcajes_por_empleado) ?>;
-        const situacionesGuardadas = <?= json_encode($situaciones_guardadas) ?>;
-        const personalizaciones = <?= json_encode($personalizaciones) ?>;
-        const diasLaborables = <?= json_encode($dias_laborables) ?>;
-        const esModoMultiple = <?= $modo_multiple ? 'true' : 'false' ?>;
-        
-        const mesesAbrev = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-        const diasCorto = ['L', 'M', 'M', 'J', 'V'];
-        
-        let empleadoActivo = null;
-        let fechaSeleccionada = '';
-        let idEmpleadoSeleccionado = null;
-        let situacionSeleccionada = '';
+   <script>
+    const empleadosInfo = <?= json_encode($empleados_info) ?>;
+    const marcajesPorEmpleado = <?= json_encode($marcajes_por_empleado) ?>;
+    const situacionesGuardadas = <?= json_encode($situaciones_guardadas) ?>;
+    const personalizaciones = <?= json_encode($personalizaciones) ?>;
+    const diasLaborables = <?= json_encode($dias_laborables) ?>;
+    const esModoMultiple = <?= $modo_multiple ? 'true' : 'false' ?>;
+    
+    const mesesAbrev = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const diasCorto = ['L', 'M', 'M', 'J', 'V'];
+    
+    let empleadoActivo = null;
+    let fechaSeleccionada = '';
+    let idEmpleadoSeleccionado = null;
+    let situacionSeleccionada = '';
 
-        function mostrarToast(mensaje, tipo = 'success') {
-            const toast = document.getElementById('toast');
-            toast.textContent = mensaje;
-            toast.className = `toast ${tipo}`;
-            toast.style.display = 'flex';
-            
+    // Función para mostrar toast centrado
+    function mostrarToast(mensaje, tipo = 'success') {
+        const toast = document.getElementById('toast');
+        toast.innerHTML = `<i class="fas ${tipo === 'success' ? 'fa-check-circle' : tipo === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i> ${mensaje}`;
+        toast.className = `toast ${tipo}`;
+        toast.style.display = 'flex';
+        
+        setTimeout(() => {
+            toast.style.animation = 'fadeOut 0.3s ease';
             setTimeout(() => {
                 toast.style.display = 'none';
-            }, 3000);
-        }
+                toast.style.animation = '';
+            }, 300);
+        }, 3000);
+    }
 
-        function formatearFechaConMes(fecha) {
-            const [anio, mes, dia] = fecha.split('-');
-            return dia + '/' + mesesAbrev[parseInt(mes) - 1] + '/' + anio;
-        }
+    function formatearFechaConMes(fecha) {
+        const [anio, mes, dia] = fecha.split('-');
+        return dia + '/' + mesesAbrev[parseInt(mes) - 1] + '/' + anio;
+    }
 
-        function obtenerDiaCorto(fecha) {
-            const fechaObj = new Date(fecha + 'T00:00:00');
-            const diaSemana = fechaObj.getDay();
-            const diaIndex = diaSemana === 0 ? 6 : diaSemana - 1;
-            return diasCorto[diaIndex];
-        }
+    function obtenerDiaCorto(fecha) {
+        const fechaObj = new Date(fecha + 'T00:00:00');
+        const diaSemana = fechaObj.getDay();
+        const diaIndex = diaSemana === 0 ? 6 : diaSemana - 1;
+        return diasCorto[diaIndex];
+    }
 
-        function obtenerColoresPersonalizados(situacion) {
-            const coloresDefault = {
-                'Permiso': { color_fondo: '#57df77', color_texto: '#000000', texto_personalizado: 'Permiso' },
-                'Vacación': { color_fondo: '#cec12c', color_texto: '#000000', texto_personalizado: 'Vacación' },
-                'Enfermedad': { color_fondo: '#cb1052', color_texto: '#000000', texto_personalizado: 'Enfermedad' },
-                'Incapacidad': { color_fondo: '#b727ab', color_texto: '#000000', texto_personalizado: 'Incapacidad' },
-                'Día personal': { color_fondo: '#12beb8', color_texto: '#000000', texto_personalizado: 'Día personal' },
-                'No se presentó': { color_fondo: '#ec7b7b', color_texto: '#000000', texto_personalizado: 'No se presentó' }
+    function obtenerColoresPersonalizados(situacion) {
+        const coloresDefault = {
+            'Permiso': { color_fondo: '#57df77', color_texto: '#000000', texto_personalizado: 'Permiso' },
+            'Vacación': { color_fondo: '#cec12c', color_texto: '#000000', texto_personalizado: 'Vacación' },
+            'Enfermedad': { color_fondo: '#cb1052', color_texto: '#000000', texto_personalizado: 'Enfermedad' },
+            'Incapacidad': { color_fondo: '#b727ab', color_texto: '#000000', texto_personalizado: 'Incapacidad' },
+            'Día personal': { color_fondo: '#12beb8', color_texto: '#000000', texto_personalizado: 'Día personal' },
+            'No se presentó': { color_fondo: '#ec7b7b', color_texto: '#000000', texto_personalizado: 'No se presentó' }
+        };
+        
+        if (personalizaciones[situacion]) {
+            const pers = personalizaciones[situacion];
+            return {
+                color_fondo: pers.color_fondo || coloresDefault[situacion]?.color_fondo || '#ffffff',
+                color_texto: '#000000',
+                texto_personalizado: pers.texto_personalizado || situacion
             };
-            
-            if (personalizaciones[situacion]) {
-                const pers = personalizaciones[situacion];
-                return {
-                    color_fondo: pers.color_fondo || coloresDefault[situacion]?.color_fondo || '#ffffff',
-                    color_texto: '#000000',
-                    texto_personalizado: pers.texto_personalizado || situacion
-                };
-            }
-            
-            return coloresDefault[situacion] || { color_fondo: '#ffffff', color_texto: '#000000', texto_personalizado: situacion };
         }
+        
+        return coloresDefault[situacion] || { color_fondo: '#ffffff', color_texto: '#000000', texto_personalizado: situacion };
+    }
 
-        function determinarClase(tipo, hora) {
-            if (!hora) return 'faltante';
-            
-            const horaDate = new Date('1970-01-01T' + hora);
-            
-            if (tipo === 'entrada_manana') {
-                if (horaDate < new Date('1970-01-01T07:00:00')) return 'naranja';
-                if (horaDate >= new Date('1970-01-01T09:00:00')) return 'tarde9';
-                if (horaDate > new Date('1970-01-01T08:00:00')) return 'tarde';
-            }
-            
-            if (tipo === 'entrada_almuerzo') {
-                if (horaDate > new Date('1970-01-01T14:00:00')) return 'tarde';
-            }
-            
-            if (tipo === 'salida_final') {
-                if (horaDate > new Date('1970-01-01T18:00:00')) return 'verde';
-                if (horaDate < new Date('1970-01-01T16:00:00')) return 'morado';
-            }
-            
-            return '';
+    function determinarClase(tipo, hora) {
+        if (!hora) return 'faltante';
+        
+        const horaDate = new Date('1970-01-01T' + hora);
+        
+        if (tipo === 'entrada_manana') {
+            if (horaDate < new Date('1970-01-01T07:00:00')) return 'naranja';
+            if (horaDate >= new Date('1970-01-01T09:00:00')) return 'tarde9';
+            if (horaDate > new Date('1970-01-01T08:00:00')) return 'tarde';
         }
-
-        function formatearHora12(hora) {
-            if (!hora) return '';
-            const fecha = new Date('1970-01-01T' + hora);
-            return fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        
+        if (tipo === 'entrada_almuerzo') {
+            if (horaDate > new Date('1970-01-01T14:00:00')) return 'tarde';
         }
-
-        function mostrarEmpleado(idEmpleado) {
-            if (esModoMultiple) {
-                document.querySelectorAll('.empleado-tarjeta').forEach(tarjeta => {
-                    tarjeta.classList.remove('active');
-                });
-                const tarjeta = document.getElementById('tarjeta-' + idEmpleado);
-                if (tarjeta) tarjeta.classList.add('active');
-            }
-            
-            if (empleadoActivo === idEmpleado) return;
-            empleadoActivo = idEmpleado;
-            
-            const empleado = empleadosInfo[idEmpleado];
-            const marcajes = marcajesPorEmpleado[idEmpleado] || {};
-            const situaciones = situacionesGuardadas[idEmpleado] || {};
-            
-            let html = `
-                <div class="empleado-seccion" id="seccion-${idEmpleado}">
-                    <div class="seccion-titulo">
-                        <span>
-                            <i class="fas fa-calendar-alt"></i>
-                            ${empleado.nombre} ${empleado.apellido}
-                        </span>
-                        ${esModoMultiple ? `
-                        <button type="button" class="btn-cerrar" onclick="cerrarEmpleado()">
-                            <i class="fas fa-times"></i>
-                        </button>
-                        ` : ''}
-                    </div>
-                    <table class="tabla-marcajes">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Día</th>
-                                <th>Fecha</th>
-                                <th>Entrada</th>
-                                <th>Salida Alm</th>
-                                <th>Entrada Alm</th>
-                                <th>Salida</th>
-                                <th>Situación</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-            
-            let contador = 1;
-            diasLaborables.forEach(fecha => {
-                const marcajesDia = marcajes[fecha] || null;
-                const situacionDia = situaciones[fecha] || '';
-                const diaCorto = obtenerDiaCorto(fecha);
-                const fechaFormateada = formatearFechaConMes(fecha);
-                
-                const tieneAlgunMarcaje = marcajesDia && (
-                    marcajesDia.entrada_manana || 
-                    marcajesDia.salida_almuerzo || 
-                    marcajesDia.entrada_almuerzo || 
-                    marcajesDia.salida_final
-                );
-                
-                let estiloFila = '';
-                if (situacionDia) {
-                    const colores = obtenerColoresPersonalizados(situacionDia);
-                    estiloFila = `style="background-color: ${colores.color_fondo}; color: #000000;"`;
-                } else if (!tieneAlgunMarcaje) {
-                    estiloFila = 'class="fila-sin-marcajes"';
-                }
-                
-                html += `<tr data-fecha="${fecha}" data-id-empleado="${idEmpleado}" data-situacion="${situacionDia}" ${estiloFila}>`;
-                html += `<td><strong>${contador++}</strong></td>`;
-                html += `<td><strong>${diaCorto}</strong></td>`;
-                html += `<td><strong>${fechaFormateada}</strong></td>`;
-                
-                // Entrada Mañana
-                const entradaManana = marcajesDia?.entrada_manana;
-                if (entradaManana) {
-                    const clase = determinarClase('entrada_manana', entradaManana.hora_only);
-                    html += `<td>
-                        <span class="hora-display ${clase}" id="hora-${entradaManana.id_registro}">${formatearHora12(entradaManana.hora_only)}</span><br>
-                        <button class="btn-accion editar" onclick="abrirModalEditarHora(${entradaManana.id_registro}, '${entradaManana.hora_only.substring(0, 5)}', 'entrada_manana', '${fecha}', ${idEmpleado})">
-                            Editar
-                        </button>
-                    </td>`;
-                } else {
-                    html += `<td>
-                        <span class="hora-display faltante">No marcó</span><br>
-                        <button class="btn-accion agregar" onclick="abrirModalAgregarMarcaje(${idEmpleado}, '${fecha}', 'entrada_manana')">
-                            Agregar
-                        </button>
-                    </td>`;
-                }
-                
-                // Salida Almuerzo
-                const salidaAlmuerzo = marcajesDia?.salida_almuerzo;
-                if (salidaAlmuerzo) {
-                    const clase = determinarClase('salida_almuerzo', salidaAlmuerzo.hora_only);
-                    html += `<td>
-                        <span class="hora-display ${clase}" id="hora-${salidaAlmuerzo.id_registro}">${formatearHora12(salidaAlmuerzo.hora_only)}</span><br>
-                        <button class="btn-accion editar" onclick="abrirModalEditarHora(${salidaAlmuerzo.id_registro}, '${salidaAlmuerzo.hora_only.substring(0, 5)}', 'salida_almuerzo', '${fecha}', ${idEmpleado})">
-                            Editar
-                        </button>
-                    </td>`;
-                } else {
-                    html += `<td>
-                        <span class="hora-display">-</span><br>
-                        <button class="btn-accion agregar" onclick="abrirModalAgregarMarcaje(${idEmpleado}, '${fecha}', 'salida_almuerzo')">
-                            Agregar
-                        </button>
-                    </td>`;
-                }
-                
-                // Entrada Almuerzo
-                const entradaAlmuerzo = marcajesDia?.entrada_almuerzo;
-                if (entradaAlmuerzo) {
-                    const clase = determinarClase('entrada_almuerzo', entradaAlmuerzo.hora_only);
-                    html += `<td>
-                        <span class="hora-display ${clase}" id="hora-${entradaAlmuerzo.id_registro}">${formatearHora12(entradaAlmuerzo.hora_only)}</span><br>
-                        <button class="btn-accion editar" onclick="abrirModalEditarHora(${entradaAlmuerzo.id_registro}, '${entradaAlmuerzo.hora_only.substring(0, 5)}', 'entrada_almuerzo', '${fecha}', ${idEmpleado})">
-                            Editar
-                        </button>
-                    </td>`;
-                } else {
-                    html += `<td>
-                        <span class="hora-display">-</span><br>
-                        <button class="btn-accion agregar" onclick="abrirModalAgregarMarcaje(${idEmpleado}, '${fecha}', 'entrada_almuerzo')">
-                            Agregar
-                        </button>
-                    </td>`;
-                }
-                
-                // Salida Final
-                const salidaFinal = marcajesDia?.salida_final;
-                if (salidaFinal) {
-                    const clase = determinarClase('salida_final', salidaFinal.hora_only);
-                    html += `<td>
-                        <span class="hora-display ${clase}" id="hora-${salidaFinal.id_registro}">${formatearHora12(salidaFinal.hora_only)}</span><br>
-                        <button class="btn-accion editar" onclick="abrirModalEditarHora(${salidaFinal.id_registro}, '${salidaFinal.hora_only.substring(0, 5)}', 'salida_final', '${fecha}', ${idEmpleado})">
-                            Editar
-                        </button>
-                    </td>`;
-                } else {
-                    html += `<td>
-                        <span class="hora-display">-</span><br>
-                        <button class="btn-accion agregar" onclick="abrirModalAgregarMarcaje(${idEmpleado}, '${fecha}', 'salida_final')">
-                            Agregar
-                        </button>
-                    </td>`;
-                }
-                
-                // Situación
-                html += `<td>`;
-                if (situacionDia) {
-                    const colores = obtenerColoresPersonalizados(situacionDia);
-                    const textoMostrar = colores.texto_personalizado || situacionDia;
-                    html += `<span class="situacion-actual" id="situacion-${fecha}-${idEmpleado}" data-situacion="${situacionDia}" style="background-color: ${colores.color_fondo}; color: #000000;">${textoMostrar}</span><br>`;
-                } else {
-                    html += `<span class="situacion-actual" id="situacion-${fecha}-${idEmpleado}" style="display: none;"></span>`;
-                }
-                html += `<button type="button" class="btn-situacion" onclick="abrirModal('${fecha}', ${idEmpleado})">${situacionDia ? 'Cambiar' : 'Asignar'}</button>`;
-                html += `</td>`;
-                html += `</tr>`;
-            });
-            
-            html += `
-                        </tbody>
-                    </table>
-                </div>
-            `;
-            
-            document.getElementById('contenedor-tabla').innerHTML = html;
-            document.getElementById('btn-guardar').style.display = 'flex';
+        
+        if (tipo === 'salida_final') {
+            if (horaDate > new Date('1970-01-01T18:00:00')) return 'verde';
+            if (horaDate < new Date('1970-01-01T16:00:00')) return 'morado';
         }
+        
+        return '';
+    }
 
-        // Funciones para el modal de editar hora
-        function abrirModalEditarHora(idRegistro, horaActual, tipo, fecha, idEmpleado) {
-            document.getElementById('editIdRegistro').value = idRegistro;
-            document.getElementById('editHora').value = horaActual;
-            document.getElementById('editTipo').value = tipo;
-            document.getElementById('editFecha').value = fecha;
-            document.getElementById('editIdEmpleado').value = idEmpleado;
-            document.getElementById('modalEditarHora').style.display = 'block';
-        }
+    function formatearHora12(hora) {
+        if (!hora) return '';
+        const fecha = new Date('1970-01-01T' + hora);
+        return fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    }
 
-        function cerrarModalEditarHora() {
-            document.getElementById('modalEditarHora').style.display = 'none';
-        }
-
-        function guardarEdicionHora() {
-            const idRegistro = document.getElementById('editIdRegistro').value;
-            const nuevaHora = document.getElementById('editHora').value;
-            const tipo = document.getElementById('editTipo').value;
-            const fecha = document.getElementById('editFecha').value;
-            const idEmpleado = document.getElementById('editIdEmpleado').value;
-            
-            if (!nuevaHora) {
-                mostrarToast('Debes seleccionar una hora', 'error');
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('accion', 'actualizar_hora');
-            formData.append('id_registro', idRegistro);
-            formData.append('hora', nuevaHora);
-            formData.append('tipo', tipo);
-            
-            fetch(window.location.href, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    mostrarToast('Hora actualizada correctamente');
-                    cerrarModalEditarHora();
-                    
-                    // Actualizar la hora en la tabla sin recargar todo
-                    const horaSpan = document.getElementById(`hora-${idRegistro}`);
-                    if (horaSpan) {
-                        horaSpan.textContent = data.hora_formateada;
-                        horaSpan.className = `hora-display ${data.clase}`;
-                    }
-                    
-                    // Verificar si ahora la fila tiene marcajes y quitar clase sin-marcajes si es necesario
-                    const fila = document.querySelector(`tr[data-fecha="${fecha}"][data-id-empleado="${idEmpleado}"]`);
-                    if (fila && fila.classList.contains('fila-sin-marcajes') && !fila.dataset.situacion) {
-                        const inputsHora = fila.querySelectorAll('.hora-display');
-                        let tieneAlgunMarcaje = false;
-                        inputsHora.forEach(span => {
-                            if (span.textContent !== 'No marcó' && span.textContent !== '-') {
-                                tieneAlgunMarcaje = true;
-                            }
-                        });
-                        if (tieneAlgunMarcaje) {
-                            fila.classList.remove('fila-sin-marcajes');
-                        }
-                    }
-                } else {
-                    mostrarToast('Error: ' + data.error, 'error');
-                }
-            })
-            .catch(error => {
-                mostrarToast('Error al actualizar: ' + error, 'error');
-            });
-        }
-
-        // Funciones para el modal de agregar marcaje
-        function abrirModalAgregarMarcaje(idEmpleado, fecha, tipo) {
-            document.getElementById('addIdEmpleado').value = idEmpleado;
-            document.getElementById('addFecha').value = fecha;
-            document.getElementById('addTipo').value = tipo;
-            document.getElementById('addHora').value = '';
-            document.getElementById('modalAgregarMarcaje').style.display = 'block';
-        }
-
-        function cerrarModalAgregarMarcaje() {
-            document.getElementById('modalAgregarMarcaje').style.display = 'none';
-        }
-
-        function guardarNuevoMarcaje() {
-            const idEmpleado = document.getElementById('addIdEmpleado').value;
-            const fecha = document.getElementById('addFecha').value;
-            const hora = document.getElementById('addHora').value;
-            const tipo = document.getElementById('addTipo').value;
-            
-            if (!hora) {
-                mostrarToast('Debes seleccionar una hora', 'error');
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('accion', 'agregar_marcaje');
-            formData.append('id_empleado', idEmpleado);
-            formData.append('fecha', fecha);
-            formData.append('hora', hora);
-            formData.append('tipo', tipo);
-            
-            fetch(window.location.href, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    mostrarToast('Marcaje agregado correctamente');
-                    cerrarModalAgregarMarcaje();
-                    // Recargar la tabla para mostrar el nuevo marcaje
-                    mostrarEmpleado(empleadoActivo);
-                } else {
-                    mostrarToast('Error: ' + data.error, 'error');
-                }
-            })
-            .catch(error => {
-                mostrarToast('Error al agregar: ' + error, 'error');
-            });
-        }
-
-        // Funciones para el modal de situación
-        function abrirModal(fecha, idEmpleado) {
-            fechaSeleccionada = fecha;
-            idEmpleadoSeleccionado = idEmpleado;
-            
-            const fila = document.querySelector(`tr[data-fecha="${fecha}"][data-id-empleado="${idEmpleado}"]`);
-            const situacionActual = fila ? fila.dataset.situacion : '';
-            
-            document.getElementById('modalFecha').value = fecha;
-            document.getElementById('modalIdEmpleado').value = idEmpleado;
-            
-            document.querySelectorAll('.opcion-situacion').forEach(opt => {
-                opt.classList.remove('selected');
-            });
-            
-            if (situacionActual) {
-                const opcion = document.querySelector(`.opcion-situacion[data-situacion="${situacionActual}"]`);
-                if (opcion) {
-                    opcion.classList.add('selected');
-                    situacionSeleccionada = situacionActual;
-                } else {
-                    situacionSeleccionada = '';
-                }
-            } else {
-                situacionSeleccionada = '';
-            }
-            
-            document.getElementById('modalSituacion').style.display = 'block';
-        }
-
-        function seleccionarSituacion(situacion, elemento) {
-            document.querySelectorAll('.opcion-situacion').forEach(opt => {
-                opt.classList.remove('selected');
-            });
-            
-            elemento.classList.add('selected');
-            situacionSeleccionada = situacion;
-        }
-
-        function seleccionarNinguno(elemento) {
-            document.querySelectorAll('.opcion-situacion').forEach(opt => {
-                opt.classList.remove('selected');
-            });
-            
-            elemento.classList.add('selected');
-            situacionSeleccionada = '';
-        }
-
-        function guardarSituacion() {
-            const fecha = fechaSeleccionada;
-            const idEmpleado = idEmpleadoSeleccionado;
-            
-            const formData = new FormData();
-            formData.append('accion', 'actualizar_situacion');
-            formData.append('id_empleado', idEmpleado);
-            formData.append('fecha', fecha);
-            formData.append('situacion', situacionSeleccionada);
-            
-            fetch(window.location.href, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    mostrarToast(data.message);
-                    cerrarModal();
-                    
-                    // Actualizar la situación en la tabla
-                    const fila = document.querySelector(`tr[data-fecha="${fecha}"][data-id-empleado="${idEmpleado}"]`);
-                    if (fila) {
-                        fila.dataset.situacion = situacionSeleccionada;
-                        
-                   
-                        fila.style.backgroundColor = '';
-                        fila.style.color = '';
-                        fila.classList.remove('fila-sin-marcajes');
-                        
-                        if (situacionSeleccionada) {
-                            fila.style.backgroundColor = data.color_fondo;
-                            fila.style.color = '#000000';
-                        }
-                        
-                     
-                        const situacionSpan = document.getElementById(`situacion-${fecha}-${idEmpleado}`);
-                        const btnCell = fila.lastElementChild;
-                        
-                        if (situacionSeleccionada) {
-                            situacionSpan.style.display = 'inline-block';
-                            situacionSpan.textContent = data.texto;
-                            situacionSpan.style.backgroundColor = data.color_fondo;
-                            situacionSpan.dataset.situacion = situacionSeleccionada;
-                            
-                            // Actualizar el texto del botón
-                            const btn = btnCell.querySelector('.btn-situacion');
-                            btn.textContent = 'Cambiar';
-                        } else {
-                            situacionSpan.style.display = 'none';
-                            const btn = btnCell.querySelector('.btn-situacion');
-                            btn.textContent = 'Asignar';
-                        }
-                    }
-                } else {
-                    mostrarToast('Error: ' + data.error, 'error');
-                }
-            })
-            .catch(error => {
-                mostrarToast('Error al guardar situación: ' + error, 'error');
-            });
-        }
-
-        function cerrarModal() {
-            document.getElementById('modalSituacion').style.display = 'none';
-            situacionSeleccionada = '';
-        }
-
-        function cerrarEmpleado() {
-            empleadoActivo = null;
+    function mostrarEmpleado(idEmpleado) {
+        if (esModoMultiple) {
             document.querySelectorAll('.empleado-tarjeta').forEach(tarjeta => {
                 tarjeta.classList.remove('active');
             });
-            
-            document.getElementById('contenedor-tabla').innerHTML = `
-                <div class="mensaje-seleccion" id="mensaje-seleccion">
-                    <i class="fas fa-hand-pointer"></i>
-                    <h3>Selecciona un empleado</h3>
-                    <p>Haz clic en cualquier tarjeta para editar sus marcajes</p>
+            const tarjeta = document.getElementById('tarjeta-' + idEmpleado);
+            if (tarjeta) tarjeta.classList.add('active');
+        }
+        
+        if (empleadoActivo === idEmpleado) return;
+        empleadoActivo = idEmpleado;
+        
+        const empleado = empleadosInfo[idEmpleado];
+        const marcajes = marcajesPorEmpleado[idEmpleado] || {};
+        const situaciones = situacionesGuardadas[idEmpleado] || {};
+        
+        let html = `
+            <div class="empleado-seccion" id="seccion-${idEmpleado}">
+                <div class="seccion-titulo">
+                    <span>
+                        <i class="fas fa-calendar-alt"></i>
+                        ${empleado.nombre} ${empleado.apellido}
+                    </span>
+                    ${esModoMultiple ? `
+                    <button type="button" class="btn-cerrar" onclick="cerrarEmpleado()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    ` : ''}
                 </div>
-            `;
+                <table class="tabla-marcajes">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Día</th>
+                            <th>Fecha</th>
+                            <th>Entrada</th>
+                            <th>Salida Alm</th>
+                            <th>Entrada Alm</th>
+                            <th>Salida</th>
+                            <th>Situación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        let contador = 1;
+        diasLaborables.forEach(fecha => {
+            const marcajesDia = marcajes[fecha] || null;
+            const situacionDia = situaciones[fecha] || '';
+            const diaCorto = obtenerDiaCorto(fecha);
+            const fechaFormateada = formatearFechaConMes(fecha);
             
-            document.getElementById('btn-guardar').style.display = 'none';
-        }
-
-        function guardarTodosLosCambios() {
-            mostrarToast('Los cambios se guardan automáticamente al editar', 'info');
-        }
-
-        window.onclick = function(event) {
-            const modalSituacion = document.getElementById('modalSituacion');
-            const modalEditar = document.getElementById('modalEditarHora');
-            const modalAgregar = document.getElementById('modalAgregarMarcaje');
+            const tieneAlgunMarcaje = marcajesDia && (
+                marcajesDia.entrada_manana || 
+                marcajesDia.salida_almuerzo || 
+                marcajesDia.entrada_almuerzo || 
+                marcajesDia.salida_final
+            );
             
-            if (event.target == modalSituacion) {
-                cerrarModal();
+            let estiloFila = '';
+            if (situacionDia) {
+                const colores = obtenerColoresPersonalizados(situacionDia);
+                estiloFila = `style="background-color: ${colores.color_fondo}; color: #000000;"`;
+            } else if (!tieneAlgunMarcaje) {
+                estiloFila = 'class="fila-sin-marcajes"';
             }
-            if (event.target == modalEditar) {
+            
+            html += `<tr data-fecha="${fecha}" data-id-empleado="${idEmpleado}" data-situacion="${situacionDia}" ${estiloFila}>`;
+            html += `<td><strong>${contador++}</strong></td>`;
+            html += `<td><strong>${diaCorto}</strong></td>`;
+            html += `<td><strong>${fechaFormateada}</strong></td>`;
+            
+            // Entrada Mañana
+            const entradaManana = marcajesDia?.entrada_manana;
+            if (entradaManana) {
+                const clase = determinarClase('entrada_manana', entradaManana.hora_only);
+                html += `<td>
+                    <span class="hora-display ${clase}" id="hora-${entradaManana.id_registro}">${formatearHora12(entradaManana.hora_only)}</span><br>
+                    <button class="btn-accion editar" onclick="abrirModalEditarHora(${entradaManana.id_registro}, '${entradaManana.hora_only.substring(0, 5)}', 'entrada_manana', '${fecha}', ${idEmpleado})">
+                        Editar
+                    </button>
+                </td>`;
+            } else {
+                html += `<td>
+                    <span class="hora-display faltante">No marcó</span><br>
+                    <button class="btn-accion agregar" onclick="abrirModalAgregarMarcaje(${idEmpleado}, '${fecha}', 'entrada_manana')">
+                        Agregar
+                    </button>
+                </td>`;
+            }
+            
+            // Salida Almuerzo
+            const salidaAlmuerzo = marcajesDia?.salida_almuerzo;
+            if (salidaAlmuerzo) {
+                const clase = determinarClase('salida_almuerzo', salidaAlmuerzo.hora_only);
+                html += `<td>
+                    <span class="hora-display ${clase}" id="hora-${salidaAlmuerzo.id_registro}">${formatearHora12(salidaAlmuerzo.hora_only)}</span><br>
+                    <button class="btn-accion editar" onclick="abrirModalEditarHora(${salidaAlmuerzo.id_registro}, '${salidaAlmuerzo.hora_only.substring(0, 5)}', 'salida_almuerzo', '${fecha}', ${idEmpleado})">
+                        Editar
+                    </button>
+                </td>`;
+            } else {
+                html += `<td>
+                    <span class="hora-display">-</span><br>
+                    <button class="btn-accion agregar" onclick="abrirModalAgregarMarcaje(${idEmpleado}, '${fecha}', 'salida_almuerzo')">
+                        Agregar
+                    </button>
+                </td>`;
+            }
+            
+            // Entrada Almuerzo
+            const entradaAlmuerzo = marcajesDia?.entrada_almuerzo;
+            if (entradaAlmuerzo) {
+                const clase = determinarClase('entrada_almuerzo', entradaAlmuerzo.hora_only);
+                html += `<td>
+                    <span class="hora-display ${clase}" id="hora-${entradaAlmuerzo.id_registro}">${formatearHora12(entradaAlmuerzo.hora_only)}</span><br>
+                    <button class="btn-accion editar" onclick="abrirModalEditarHora(${entradaAlmuerzo.id_registro}, '${entradaAlmuerzo.hora_only.substring(0, 5)}', 'entrada_almuerzo', '${fecha}', ${idEmpleado})">
+                        Editar
+                    </button>
+                </td>`;
+            } else {
+                html += `<td>
+                    <span class="hora-display">-</span><br>
+                    <button class="btn-accion agregar" onclick="abrirModalAgregarMarcaje(${idEmpleado}, '${fecha}', 'entrada_almuerzo')">
+                        Agregar
+                    </button>
+                </td>`;
+            }
+            
+            // Salida Final
+            const salidaFinal = marcajesDia?.salida_final;
+            if (salidaFinal) {
+                const clase = determinarClase('salida_final', salidaFinal.hora_only);
+                html += `<td>
+                    <span class="hora-display ${clase}" id="hora-${salidaFinal.id_registro}">${formatearHora12(salidaFinal.hora_only)}</span><br>
+                    <button class="btn-accion editar" onclick="abrirModalEditarHora(${salidaFinal.id_registro}, '${salidaFinal.hora_only.substring(0, 5)}', 'salida_final', '${fecha}', ${idEmpleado})">
+                        Editar
+                    </button>
+                </td>`;
+            } else {
+                html += `<td>
+                    <span class="hora-display">-</span><br>
+                    <button class="btn-accion agregar" onclick="abrirModalAgregarMarcaje(${idEmpleado}, '${fecha}', 'salida_final')">
+                        Agregar
+                    </button>
+                </td>`;
+            }
+            
+            // Situación - Se crea con IDs únicos para poder actualizarlos después
+            html += `<td>`;
+            if (situacionDia) {
+                const colores = obtenerColoresPersonalizados(situacionDia);
+                const textoMostrar = colores.texto_personalizado || situacionDia;
+                html += `<span class="situacion-actual" id="situacion-${fecha}-${idEmpleado}" data-situacion="${situacionDia}" style="background-color: ${colores.color_fondo}; color: #000000; border: 2px solid ${colores.color_fondo};">${textoMostrar}</span><br>`;
+            } else {
+                html += `<span class="situacion-actual" id="situacion-${fecha}-${idEmpleado}" style="display: none;"></span>`;
+            }
+            html += `<button type="button" class="btn-situacion" onclick="abrirModal('${fecha}', ${idEmpleado})">${situacionDia ? 'Cambiar' : 'Asignar'}</button>`;
+            html += `</td>`;
+            html += `</tr>`;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        document.getElementById('contenedor-tabla').innerHTML = html;
+    }
+
+    // Funciones para el modal de editar hora
+    function abrirModalEditarHora(idRegistro, horaActual, tipo, fecha, idEmpleado) {
+        document.getElementById('editIdRegistro').value = idRegistro;
+        document.getElementById('editHora').value = horaActual;
+        document.getElementById('editTipo').value = tipo;
+        document.getElementById('editFecha').value = fecha;
+        document.getElementById('editIdEmpleado').value = idEmpleado;
+        document.getElementById('modalEditarHora').style.display = 'block';
+    }
+
+    function cerrarModalEditarHora() {
+        document.getElementById('modalEditarHora').style.display = 'none';
+    }
+
+    function guardarEdicionHora() {
+        const idRegistro = document.getElementById('editIdRegistro').value;
+        const nuevaHora = document.getElementById('editHora').value;
+        const tipo = document.getElementById('editTipo').value;
+        const fecha = document.getElementById('editFecha').value;
+        const idEmpleado = document.getElementById('editIdEmpleado').value;
+        
+        if (!nuevaHora) {
+            mostrarToast('Debes seleccionar una hora', 'error');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('accion', 'actualizar_hora');
+        formData.append('id_registro', idRegistro);
+        formData.append('hora', nuevaHora);
+        formData.append('tipo', tipo);
+        
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarToast('Hora actualizada correctamente');
                 cerrarModalEditarHora();
+                
+                // Actualizar la hora en la tabla sin recargar todo
+                const horaSpan = document.getElementById(`hora-${idRegistro}`);
+                if (horaSpan) {
+                    horaSpan.textContent = data.hora_formateada;
+                    horaSpan.className = `hora-display ${data.clase}`;
+                }
+                
+                // Verificar si ahora la fila tiene marcajes y quitar clase sin-marcajes si es necesario
+                const fila = document.querySelector(`tr[data-fecha="${fecha}"][data-id-empleado="${idEmpleado}"]`);
+                if (fila && fila.classList.contains('fila-sin-marcajes') && !fila.dataset.situacion) {
+                    const inputsHora = fila.querySelectorAll('.hora-display');
+                    let tieneAlgunMarcaje = false;
+                    inputsHora.forEach(span => {
+                        if (span.textContent !== 'No marcó' && span.textContent !== '-') {
+                            tieneAlgunMarcaje = true;
+                        }
+                    });
+                    if (tieneAlgunMarcaje) {
+                        fila.classList.remove('fila-sin-marcajes');
+                    }
+                }
+            } else {
+                mostrarToast('Error: ' + data.error, 'error');
             }
-            if (event.target == modalAgregar) {
-                cerrarModalAgregarMarcaje();
-            }
+        })
+        .catch(error => {
+            mostrarToast('Error al actualizar: ' + error, 'error');
+        });
+    }
+
+    // Funciones para el modal de agregar marcaje
+    function abrirModalAgregarMarcaje(idEmpleado, fecha, tipo) {
+        document.getElementById('addIdEmpleado').value = idEmpleado;
+        document.getElementById('addFecha').value = fecha;
+        document.getElementById('addTipo').value = tipo;
+        document.getElementById('addHora').value = '';
+        document.getElementById('modalAgregarMarcaje').style.display = 'block';
+    }
+
+    function cerrarModalAgregarMarcaje() {
+        document.getElementById('modalAgregarMarcaje').style.display = 'none';
+    }
+
+    function guardarNuevoMarcaje() {
+        const idEmpleado = document.getElementById('addIdEmpleado').value;
+        const fecha = document.getElementById('addFecha').value;
+        const hora = document.getElementById('addHora').value;
+        const tipo = document.getElementById('addTipo').value;
+        
+        if (!hora) {
+            mostrarToast('Debes seleccionar una hora', 'error');
+            return;
         }
-    </script>
+        
+        const formData = new FormData();
+        formData.append('accion', 'agregar_marcaje');
+        formData.append('id_empleado', idEmpleado);
+        formData.append('fecha', fecha);
+        formData.append('hora', hora);
+        formData.append('tipo', tipo);
+        
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarToast('Marcaje agregado correctamente');
+                cerrarModalAgregarMarcaje();
+                
+                // ACTUALIZACIÓN INMEDIATA: Agregar el nuevo marcaje a los datos locales
+                const nuevoRegistro = {
+                    id_registro: data.id_registro,
+                    id_empleado: parseInt(idEmpleado),
+                    fecha: fecha,
+                    hora_only: hora + ':00'
+                };
+                
+                // Actualizar el objeto marcajesPorEmpleado
+                if (!marcajesPorEmpleado[idEmpleado][fecha]) {
+                    marcajesPorEmpleado[idEmpleado][fecha] = {
+                        entrada_manana: null,
+                        salida_almuerzo: null,
+                        entrada_almuerzo: null,
+                        salida_final: null,
+                        registros: []
+                    };
+                }
+                
+                // Determinar el tipo de marcaje y asignarlo
+                const horaDate = new Date('1970-01-01T' + nuevoRegistro.hora_only);
+                if (horaDate >= new Date('1970-01-01T06:00') && horaDate <= new Date('1970-01-01T10:00')) {
+                    if (!marcajesPorEmpleado[idEmpleado][fecha].entrada_manana) {
+                        marcajesPorEmpleado[idEmpleado][fecha].entrada_manana = nuevoRegistro;
+                    }
+                } else if (horaDate >= new Date('1970-01-01T11:30') && horaDate <= new Date('1970-01-01T13:30')) {
+                    if (!marcajesPorEmpleado[idEmpleado][fecha].salida_almuerzo) {
+                        marcajesPorEmpleado[idEmpleado][fecha].salida_almuerzo = nuevoRegistro;
+                    }
+                } else if (horaDate >= new Date('1970-01-01T13:30') && horaDate <= new Date('1970-01-01T15:00')) {
+                    if (!marcajesPorEmpleado[idEmpleado][fecha].entrada_almuerzo) {
+                        marcajesPorEmpleado[idEmpleado][fecha].entrada_almuerzo = nuevoRegistro;
+                    }
+                } else if (horaDate >= new Date('1970-01-01T16:00') && horaDate <= new Date('1970-01-01T19:00')) {
+                    if (!marcajesPorEmpleado[idEmpleado][fecha].salida_final) {
+                        marcajesPorEmpleado[idEmpleado][fecha].salida_final = nuevoRegistro;
+                    }
+                }
+                
+                marcajesPorEmpleado[idEmpleado][fecha].registros.push(nuevoRegistro);
+                
+                // Recargar la tabla para mostrar el nuevo marcaje
+                mostrarEmpleado(empleadoActivo);
+            } else {
+                mostrarToast('Error: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            mostrarToast('Error al agregar: ' + error, 'error');
+        });
+    }
+
+    // Funciones para el modal de situación - CORREGIDO PARA ACTUALIZACIÓN INMEDIATA
+    function abrirModal(fecha, idEmpleado) {
+        fechaSeleccionada = fecha;
+        idEmpleadoSeleccionado = idEmpleado;
+        
+        const fila = document.querySelector(`tr[data-fecha="${fecha}"][data-id-empleado="${idEmpleado}"]`);
+        const situacionActual = fila ? fila.dataset.situacion : '';
+        
+        document.getElementById('modalFecha').value = fecha;
+        document.getElementById('modalIdEmpleado').value = idEmpleado;
+        
+        document.querySelectorAll('.opcion-situacion').forEach(opt => {
+            opt.classList.remove('selected');
+        });
+        
+        if (situacionActual) {
+            const opcion = document.querySelector(`.opcion-situacion[data-situacion="${situacionActual}"]`);
+            if (opcion) {
+                opcion.classList.add('selected');
+                situacionSeleccionada = situacionActual;
+            } else {
+                situacionSeleccionada = '';
+            }
+        } else {
+            situacionSeleccionada = '';
+        }
+        
+        document.getElementById('modalSituacion').style.display = 'block';
+    }
+
+    function seleccionarSituacion(situacion, elemento) {
+        document.querySelectorAll('.opcion-situacion').forEach(opt => {
+            opt.classList.remove('selected');
+        });
+        
+        elemento.classList.add('selected');
+        situacionSeleccionada = situacion;
+    }
+
+    function seleccionarNinguno(elemento) {
+        document.querySelectorAll('.opcion-situacion').forEach(opt => {
+            opt.classList.remove('selected');
+        });
+        
+        elemento.classList.add('selected');
+        situacionSeleccionada = '';
+    }
+
+    function guardarSituacion() {
+        const fecha = fechaSeleccionada;
+        const idEmpleado = idEmpleadoSeleccionado;
+        
+        const formData = new FormData();
+        formData.append('accion', 'actualizar_situacion');
+        formData.append('id_empleado', idEmpleado);
+        formData.append('fecha', fecha);
+        formData.append('situacion', situacionSeleccionada);
+        
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarToast(data.message);
+                cerrarModal();
+                
+                // ACTUALIZACIÓN DIRECTA DE LA INTERFAZ SIN RECARGAR
+                const fila = document.querySelector(`tr[data-fecha="${fecha}"][data-id-empleado="${idEmpleado}"]`);
+                if (fila) {
+                    // Actualizar el atributo data-situacion de la fila
+                    fila.dataset.situacion = situacionSeleccionada;
+                    
+                    // Actualizar el estilo de fondo de la fila
+                    fila.style.backgroundColor = '';
+                    fila.style.color = '';
+                    fila.classList.remove('fila-sin-marcajes');
+                    
+                    if (situacionSeleccionada) {
+                        fila.style.backgroundColor = data.color_fondo;
+                        fila.style.color = '#000000';
+                    }
+                    
+                    // Obtener la celda de situación (la última celda de la fila)
+                    const celdaSituacion = fila.lastElementChild;
+                    
+                    // Limpiar el contenido actual de la celda
+                    celdaSituacion.innerHTML = '';
+                    
+                    if (situacionSeleccionada) {
+                        // Crear el span para la situación
+                        const nuevoSpan = document.createElement('span');
+                        nuevoSpan.id = `situacion-${fecha}-${idEmpleado}`;
+                        nuevoSpan.className = 'situacion-actual';
+                        nuevoSpan.setAttribute('data-situacion', situacionSeleccionada);
+                        nuevoSpan.style.backgroundColor = data.color_fondo;
+                        nuevoSpan.style.color = '#000000';
+                        nuevoSpan.style.border = `2px solid ${data.color_fondo}`;
+                        nuevoSpan.textContent = data.texto;
+                        
+                        // Crear el botón "Cambiar"
+                        const nuevoBoton = document.createElement('button');
+                        nuevoBoton.type = 'button';
+                        nuevoBoton.className = 'btn-situacion';
+                        nuevoBoton.setAttribute('onclick', `abrirModal('${fecha}', ${idEmpleado})`);
+                        nuevoBoton.textContent = 'Cambiar';
+                        
+                        // Agregar los elementos a la celda
+                        celdaSituacion.appendChild(nuevoSpan);
+                        celdaSituacion.appendChild(document.createElement('br'));
+                        celdaSituacion.appendChild(nuevoBoton);
+                        
+                        // Efecto visual de confirmación
+                        nuevoSpan.style.transition = 'all 0.3s ease';
+                        nuevoSpan.style.transform = 'scale(1.05)';
+                        nuevoSpan.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+                        setTimeout(() => {
+                            nuevoSpan.style.transform = 'scale(1)';
+                            nuevoSpan.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                        }, 200);
+                    } else {
+                        // Crear el span oculto (aunque no se muestra)
+                        const spanOculto = document.createElement('span');
+                        spanOculto.id = `situacion-${fecha}-${idEmpleado}`;
+                        spanOculto.className = 'situacion-actual';
+                        spanOculto.style.display = 'none';
+                        
+                        // Crear el botón "Asignar"
+                        const nuevoBoton = document.createElement('button');
+                        nuevoBoton.type = 'button';
+                        nuevoBoton.className = 'btn-situacion';
+                        nuevoBoton.setAttribute('onclick', `abrirModal('${fecha}', ${idEmpleado})`);
+                        nuevoBoton.textContent = 'Asignar';
+                        
+                        // Agregar los elementos a la celda
+                        celdaSituacion.appendChild(spanOculto);
+                        celdaSituacion.appendChild(document.createElement('br'));
+                        celdaSituacion.appendChild(nuevoBoton);
+                    }
+                    
+                    // ACTUALIZACIÓN CRÍTICA: Actualizar el objeto situacionesGuardadas
+                    if (!situacionesGuardadas[idEmpleado]) {
+                        situacionesGuardadas[idEmpleado] = {};
+                    }
+                    
+                    if (situacionSeleccionada) {
+                        situacionesGuardadas[idEmpleado][fecha] = situacionSeleccionada;
+                    } else {
+                        delete situacionesGuardadas[idEmpleado][fecha];
+                    }
+                    
+                    // También actualizar el objeto marcajesPorEmpleado para mantener consistencia
+                    if (!marcajesPorEmpleado[idEmpleado][fecha]) {
+                        marcajesPorEmpleado[idEmpleado][fecha] = {
+                            entrada_manana: null,
+                            salida_almuerzo: null,
+                            entrada_almuerzo: null,
+                            salida_final: null,
+                            registros: []
+                        };
+                    }
+                }
+            } else {
+                mostrarToast('Error: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            mostrarToast('Error al guardar situación: ' + error, 'error');
+        });
+    }
+
+    function cerrarModal() {
+        document.getElementById('modalSituacion').style.display = 'none';
+        situacionSeleccionada = '';
+    }
+
+    function cerrarEmpleado() {
+        empleadoActivo = null;
+        document.querySelectorAll('.empleado-tarjeta').forEach(tarjeta => {
+            tarjeta.classList.remove('active');
+        });
+        
+        document.getElementById('contenedor-tabla').innerHTML = `
+            <div class="mensaje-seleccion" id="mensaje-seleccion">
+                <i class="fas fa-hand-pointer"></i>
+                <h3>Selecciona un empleado</h3>
+                <p>Haz clic en cualquier tarjeta para editar sus marcajes</p>
+            </div>
+        `;
+    }
+
+    window.onclick = function(event) {
+        const modalSituacion = document.getElementById('modalSituacion');
+        const modalEditar = document.getElementById('modalEditarHora');
+        const modalAgregar = document.getElementById('modalAgregarMarcaje');
+        
+        if (event.target == modalSituacion) {
+            cerrarModal();
+        }
+        if (event.target == modalEditar) {
+            cerrarModalEditarHora();
+        }
+        if (event.target == modalAgregar) {
+            cerrarModalAgregarMarcaje();
+        }
+    }
+</script>
 </body>
 </html>
