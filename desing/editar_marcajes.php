@@ -551,6 +551,23 @@ $situaciones_predefinidas = [
     'Día personal',
     'No se presentó'
 ];
+
+// Obtener historial de cambios para marcar los registros editados
+$historial_cambios = [];
+if (!empty($ids)) {
+    $sql_hist = "SELECT DISTINCT id_registro FROM historial_marcajes 
+                 WHERE id_empleado IN (" . implode(',', array_fill(0, count($ids), '?')) . ")
+                 AND fecha BETWEEN ? AND ?";
+    $stmt_hist = $conexion->prepare($sql_hist);
+    $types = str_repeat('i', count($ids)) . 'ss';
+    $params = array_merge($ids, [$fecha_inicio, $fecha_fin]);
+    $stmt_hist->bind_param($types, ...$params);
+    $stmt_hist->execute();
+    $result_hist = $stmt_hist->get_result();
+    while ($row = $result_hist->fetch_assoc()) {
+        $historial_cambios[$row['id_registro']] = true;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -673,25 +690,101 @@ $situaciones_predefinidas = [
             gap: 10px;
         }
 
-        /* Estilos para alertas centradas */
-        .alert {
+        /* Estilos para la alerta personalizada en el centro */
+        .custom-alert-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 9999;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .custom-alert {
+            display: none;
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            padding: 20px 30px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            animation: fadeIn 0.3s ease;
-            z-index: 9999;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            min-width: 300px;
-            max-width: 500px;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            z-index: 10000;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            animation: slideIn 0.3s ease;
         }
 
-        @keyframes fadeIn {
+        .custom-alert.visible {
+            display: block;
+        }
+
+        .custom-alert-overlay.visible {
+            display: block;
+        }
+
+        .custom-alert h3 {
+            color: #5b2a82;
+            margin-bottom: 15px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .custom-alert p {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .custom-alert .alert-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .custom-alert .btn-alert {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            min-width: 140px;
+        }
+
+        .custom-alert .btn-alert-danger {
+            background: #dc3545;
+            color: white;
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+        }
+
+        .custom-alert .btn-alert-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(220, 53, 69, 0.4);
+        }
+
+        .custom-alert .btn-alert-secondary {
+            background: #6c757d;
+            color: white;
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.3);
+        }
+
+        .custom-alert .btn-alert-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(108, 117, 125, 0.4);
+        }
+
+        @keyframes slideIn {
             from {
                 opacity: 0;
                 transform: translate(-50%, -60%);
@@ -702,40 +795,64 @@ $situaciones_predefinidas = [
             }
         }
 
-        @keyframes fadeOut {
+        @keyframes fadeIn {
             from {
-                opacity: 1;
-                transform: translate(-50%, -50%);
+                opacity: 0;
             }
             to {
-                opacity: 0;
-                transform: translate(-50%, -40%);
+                opacity: 1;
             }
         }
 
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border-left: 5px solid #28a745;
+        /* Estilos para el icono de lápiz en horarios editados/agregados */
+        .hora-display {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: bold;
+            min-width: 100px;
+            margin-bottom: 5px;
+            position: relative;
         }
 
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border-left: 5px solid #9d0d1c;
+        .hora-display.editado::after {
+            content: "✏️";
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            font-size: 14px;
+            background: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            animation: popIn 0.3s ease;
+            border: 2px solid #fff;
         }
 
-        .alert-warning {
-            background: #fff3cd;
-            color: #856404;
-            border-left: 5px solid #ffc107;
+        @keyframes popIn {
+            0% {
+                transform: scale(0) rotate(-180deg);
+                opacity: 0;
+            }
+            80% {
+                transform: scale(1.2) rotate(10deg);
+            }
+            100% {
+                transform: scale(1) rotate(0);
+            }
         }
 
-        .alert-info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border-left: 5px solid #17a2b8;
-        }
+        .hora-display.tarde { background: #ed8e6e; color: #760f0f; }
+        .hora-display.tarde9 { background: #a3d0eb; color: #004f7a; }
+        .hora-display.faltante { background: #f5f178; color: #7a5a00; }
+        .hora-display.verde { background: #9ce79c; color: #1f5c1f; }
+        .hora-display.naranja { background: #ebc094; color: #7a3d00; }
+        .hora-display.morado { background: #ccb8ef; color: #4b2a7a; }
 
         .leyenda-colores {
             background: white;
@@ -927,23 +1044,6 @@ $situaciones_predefinidas = [
             color: #7a5a00;
             font-weight: bold;
         }
-
-        .hora-display {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 13px;
-            font-weight: bold;
-            min-width: 100px;
-            margin-bottom: 5px;
-        }
-
-        .hora-display.tarde { background: #ed8e6e; color: #760f0f; }
-        .hora-display.tarde9 { background: #a3d0eb; color: #004f7a; }
-        .hora-display.faltante { background: #f5f178; color: #7a5a00; }
-        .hora-display.verde { background: #9ce79c; color: #1f5c1f; }
-        .hora-display.naranja { background: #ebc094; color: #7a3d00; }
-        .hora-display.morado { background: #ccb8ef; color: #4b2a7a; }
 
         .btn-accion {
             background: #5b2a82;
@@ -1186,17 +1286,6 @@ $situaciones_predefinidas = [
             color: #0c5460;
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translate(-50%, -60%);
-            }
-            to {
-                opacity: 1;
-                transform: translate(-50%, -50%);
-            }
-        }
-
         .no-datos {
             text-align: center;
             padding: 40px;
@@ -1283,6 +1372,14 @@ $situaciones_predefinidas = [
                 width: 90%;
                 min-width: auto;
             }
+            
+            .custom-alert .alert-buttons {
+                flex-direction: column;
+            }
+            
+            .custom-alert .btn-alert {
+                width: 100%;
+            }
         }
     </style>
     <?php 
@@ -1315,8 +1412,27 @@ $situaciones_predefinidas = [
     <?php endforeach; ?>
 </head>
 <body>
+    <!-- Alerta personalizada para salir sin guardar -->
+    <div class="custom-alert-overlay" id="alertOverlay"></div>
+    <div class="custom-alert" id="customAlert">
+        <h3>¡No guardaste los cambios!</h3>
+        <p>Tienes cambios sin guardar. ¿Deseas salir?</p>
+        <div class="alert-buttons">
+            <button class="btn-alert btn-alert-danger" id="alertConfirmBtn">
+                Sí, salir
+            </button>
+            <button class="btn-alert btn-alert-secondary" id="alertCancelBtn">
+                No, seguir editando
+            </button>
+        </div>
+    </div>
+
     <div class="botones-fijos">
-        <a href="<?= $url_reporte ?>" class="boton-minimal btn-volver-minimal">
+        <button onclick="guardarCambios()" class="boton-minimal btn-guardar-minimal">
+            <i class="fas fa-save"></i>
+            <span class="btn-texto">Guardar cambios</span>
+        </button>
+        <a href="<?= $url_reporte ?>" class="boton-minimal btn-volver-minimal" onclick="return verificarCambiosNoGuardados(event)">
             <i class="fas fa-arrow-left"></i>
             <span class="btn-texto">Volver al reporte</span>
         </a>
@@ -1335,7 +1451,6 @@ $situaciones_predefinidas = [
 
         <?php if ($mensaje): ?>
             <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i>
                 <?= $mensaje ?>
             </div>
             <script>
@@ -1559,6 +1674,7 @@ $situaciones_predefinidas = [
     const personalizaciones = <?= json_encode($personalizaciones) ?>;
     const diasLaborables = <?= json_encode($dias_laborables) ?>;
     const esModoMultiple = <?= $modo_multiple ? 'true' : 'false' ?>;
+    const historialCambios = <?= json_encode($historial_cambios) ?>;
     
     const mesesAbrev = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     const diasCorto = ['L', 'M', 'M', 'J', 'V'];
@@ -1567,11 +1683,90 @@ $situaciones_predefinidas = [
     let fechaSeleccionada = '';
     let idEmpleadoSeleccionado = null;
     let situacionSeleccionada = '';
+    
+    // Variable para rastrear si hay cambios no guardados
+    let hayCambiosNoGuardados = false;
+    
+    // Variables para la alerta personalizada
+    let alertCallbackConfirm = null;
+    let alertCallbackCancel = null;
+
+    // Función para mostrar alerta personalizada
+    function mostrarAlertaPersonalizada(onConfirm, onCancel) {
+        alertCallbackConfirm = onConfirm;
+        alertCallbackCancel = onCancel;
+        
+        document.getElementById('customAlert').classList.add('visible');
+        document.getElementById('alertOverlay').classList.add('visible');
+    }
+
+    // Función para cerrar alerta personalizada
+    function cerrarAlertaPersonalizada() {
+        document.getElementById('customAlert').classList.remove('visible');
+        document.getElementById('alertOverlay').classList.remove('visible');
+        alertCallbackConfirm = null;
+        alertCallbackCancel = null;
+    }
+
+    // Event listeners para los botones de la alerta
+    document.getElementById('alertConfirmBtn').addEventListener('click', function() {
+        if (alertCallbackConfirm) {
+            alertCallbackConfirm();
+        }
+        cerrarAlertaPersonalizada();
+    });
+
+    document.getElementById('alertCancelBtn').addEventListener('click', function() {
+        if (alertCallbackCancel) {
+            alertCallbackCancel();
+        }
+        cerrarAlertaPersonalizada();
+    });
+
+    document.getElementById('alertOverlay').addEventListener('click', function() {
+        if (alertCallbackCancel) {
+            alertCallbackCancel();
+        }
+        cerrarAlertaPersonalizada();
+    });
+
+    // Función para marcar que hay cambios
+    function marcarCambios() {
+        hayCambiosNoGuardados = true;
+        console.log('Cambios detectados');
+    }
+
+    // Función para guardar cambios
+    function guardarCambios() {
+        mostrarToast('Cambios guardados correctamente. Los datos se han actualizado.', 'success');
+        hayCambiosNoGuardados = false;
+        
+        setTimeout(() => {
+            window.location.href = window.location.pathname + window.location.search + '&guardado=1';
+        }, 1500);
+    }
+
+    // Función para verificar cambios antes de volver
+    function verificarCambiosNoGuardados(event) {
+        if (hayCambiosNoGuardados) {
+            event.preventDefault();
+            mostrarAlertaPersonalizada(
+                function() {
+                    window.location.href = event.target.href;
+                },
+                function() {
+                    // El usuario decidió quedarse
+                }
+            );
+            return false;
+        }
+        return true;
+    }
 
     // Función para mostrar toast centrado
     function mostrarToast(mensaje, tipo = 'success') {
         const toast = document.getElementById('toast');
-        toast.innerHTML = `<i class="fas ${tipo === 'success' ? 'fa-check-circle' : tipo === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i> ${mensaje}`;
+        toast.innerHTML = mensaje;
         toast.className = `toast ${tipo}`;
         toast.style.display = 'flex';
         
@@ -1723,8 +1918,9 @@ $situaciones_predefinidas = [
             const entradaManana = marcajesDia?.entrada_manana;
             if (entradaManana) {
                 const clase = determinarClase('entrada_manana', entradaManana.hora_only);
+                const editado = historialCambios[entradaManana.id_registro] ? 'editado' : '';
                 html += `<td>
-                    <span class="hora-display ${clase}" id="hora-${entradaManana.id_registro}">${formatearHora12(entradaManana.hora_only)}</span><br>
+                    <span class="hora-display ${clase} ${editado}" id="hora-${entradaManana.id_registro}">${formatearHora12(entradaManana.hora_only)}</span><br>
                     <button class="btn-accion editar" onclick="abrirModalEditarHora(${entradaManana.id_registro}, '${entradaManana.hora_only.substring(0, 5)}', 'entrada_manana', '${fecha}', ${idEmpleado})">
                         Editar
                     </button>
@@ -1742,8 +1938,9 @@ $situaciones_predefinidas = [
             const salidaAlmuerzo = marcajesDia?.salida_almuerzo;
             if (salidaAlmuerzo) {
                 const clase = determinarClase('salida_almuerzo', salidaAlmuerzo.hora_only);
+                const editado = historialCambios[salidaAlmuerzo.id_registro] ? 'editado' : '';
                 html += `<td>
-                    <span class="hora-display ${clase}" id="hora-${salidaAlmuerzo.id_registro}">${formatearHora12(salidaAlmuerzo.hora_only)}</span><br>
+                    <span class="hora-display ${clase} ${editado}" id="hora-${salidaAlmuerzo.id_registro}">${formatearHora12(salidaAlmuerzo.hora_only)}</span><br>
                     <button class="btn-accion editar" onclick="abrirModalEditarHora(${salidaAlmuerzo.id_registro}, '${salidaAlmuerzo.hora_only.substring(0, 5)}', 'salida_almuerzo', '${fecha}', ${idEmpleado})">
                         Editar
                     </button>
@@ -1761,8 +1958,9 @@ $situaciones_predefinidas = [
             const entradaAlmuerzo = marcajesDia?.entrada_almuerzo;
             if (entradaAlmuerzo) {
                 const clase = determinarClase('entrada_almuerzo', entradaAlmuerzo.hora_only);
+                const editado = historialCambios[entradaAlmuerzo.id_registro] ? 'editado' : '';
                 html += `<td>
-                    <span class="hora-display ${clase}" id="hora-${entradaAlmuerzo.id_registro}">${formatearHora12(entradaAlmuerzo.hora_only)}</span><br>
+                    <span class="hora-display ${clase} ${editado}" id="hora-${entradaAlmuerzo.id_registro}">${formatearHora12(entradaAlmuerzo.hora_only)}</span><br>
                     <button class="btn-accion editar" onclick="abrirModalEditarHora(${entradaAlmuerzo.id_registro}, '${entradaAlmuerzo.hora_only.substring(0, 5)}', 'entrada_almuerzo', '${fecha}', ${idEmpleado})">
                         Editar
                     </button>
@@ -1780,8 +1978,9 @@ $situaciones_predefinidas = [
             const salidaFinal = marcajesDia?.salida_final;
             if (salidaFinal) {
                 const clase = determinarClase('salida_final', salidaFinal.hora_only);
+                const editado = historialCambios[salidaFinal.id_registro] ? 'editado' : '';
                 html += `<td>
-                    <span class="hora-display ${clase}" id="hora-${salidaFinal.id_registro}">${formatearHora12(salidaFinal.hora_only)}</span><br>
+                    <span class="hora-display ${clase} ${editado}" id="hora-${salidaFinal.id_registro}">${formatearHora12(salidaFinal.hora_only)}</span><br>
                     <button class="btn-accion editar" onclick="abrirModalEditarHora(${salidaFinal.id_registro}, '${salidaFinal.hora_only.substring(0, 5)}', 'salida_final', '${fecha}', ${idEmpleado})">
                         Editar
                     </button>
@@ -1795,7 +1994,7 @@ $situaciones_predefinidas = [
                 </td>`;
             }
             
-            // Situación - Se crea con IDs únicos para poder actualizarlos después
+            // Situación
             html += `<td>`;
             if (situacionDia) {
                 const colores = obtenerColoresPersonalizados(situacionDia);
@@ -1858,13 +2057,17 @@ $situaciones_predefinidas = [
         .then(data => {
             if (data.success) {
                 mostrarToast('Hora actualizada correctamente');
+                marcarCambios();
                 cerrarModalEditarHora();
                 
-                // Actualizar la hora en la tabla sin recargar todo
+                // Agregar al historial de cambios
+                historialCambios[idRegistro] = true;
+                
+                // Actualizar la hora en la tabla
                 const horaSpan = document.getElementById(`hora-${idRegistro}`);
                 if (horaSpan) {
                     horaSpan.textContent = data.hora_formateada;
-                    horaSpan.className = `hora-display ${data.clase}`;
+                    horaSpan.className = `hora-display ${data.clase} editado`;
                 }
                 
                 // Verificar si ahora la fila tiene marcajes y quitar clase sin-marcajes si es necesario
@@ -1929,7 +2132,11 @@ $situaciones_predefinidas = [
         .then(data => {
             if (data.success) {
                 mostrarToast('Marcaje agregado correctamente');
+                marcarCambios();
                 cerrarModalAgregarMarcaje();
+                
+                // Agregar al historial de cambios para que tenga el lápiz
+                historialCambios[data.id_registro] = true;
                 
                 // ACTUALIZACIÓN INMEDIATA: Agregar el nuevo marcaje a los datos locales
                 const nuevoRegistro = {
@@ -1972,7 +2179,7 @@ $situaciones_predefinidas = [
                 
                 marcajesPorEmpleado[idEmpleado][fecha].registros.push(nuevoRegistro);
                 
-                // Recargar la tabla para mostrar el nuevo marcaje
+                // Recargar la tabla para mostrar el nuevo marcaje con el lápiz
                 mostrarEmpleado(empleadoActivo);
             } else {
                 mostrarToast('Error: ' + data.error, 'error');
@@ -1983,7 +2190,7 @@ $situaciones_predefinidas = [
         });
     }
 
-    // Funciones para el modal de situación - CORREGIDO PARA ACTUALIZACIÓN INMEDIATA
+    // Funciones para el modal de situación
     function abrirModal(fecha, idEmpleado) {
         fechaSeleccionada = fecha;
         idEmpleadoSeleccionado = idEmpleado;
@@ -2049,6 +2256,7 @@ $situaciones_predefinidas = [
         .then(data => {
             if (data.success) {
                 mostrarToast(data.message);
+                marcarCambios();
                 cerrarModal();
                 
                 // ACTUALIZACIÓN DIRECTA DE LA INTERFAZ SIN RECARGAR
@@ -2095,17 +2303,8 @@ $situaciones_predefinidas = [
                         celdaSituacion.appendChild(nuevoSpan);
                         celdaSituacion.appendChild(document.createElement('br'));
                         celdaSituacion.appendChild(nuevoBoton);
-                        
-                        // Efecto visual de confirmación
-                        nuevoSpan.style.transition = 'all 0.3s ease';
-                        nuevoSpan.style.transform = 'scale(1.05)';
-                        nuevoSpan.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
-                        setTimeout(() => {
-                            nuevoSpan.style.transform = 'scale(1)';
-                            nuevoSpan.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                        }, 200);
                     } else {
-                        // Crear el span oculto (aunque no se muestra)
+                        // Crear el span oculto
                         const spanOculto = document.createElement('span');
                         spanOculto.id = `situacion-${fecha}-${idEmpleado}`;
                         spanOculto.className = 'situacion-actual';
@@ -2124,7 +2323,7 @@ $situaciones_predefinidas = [
                         celdaSituacion.appendChild(nuevoBoton);
                     }
                     
-                    // ACTUALIZACIÓN CRÍTICA: Actualizar el objeto situacionesGuardadas
+                    // Actualizar situacionesGuardadas
                     if (!situacionesGuardadas[idEmpleado]) {
                         situacionesGuardadas[idEmpleado] = {};
                     }
@@ -2133,17 +2332,6 @@ $situaciones_predefinidas = [
                         situacionesGuardadas[idEmpleado][fecha] = situacionSeleccionada;
                     } else {
                         delete situacionesGuardadas[idEmpleado][fecha];
-                    }
-                    
-                    // También actualizar el objeto marcajesPorEmpleado para mantener consistencia
-                    if (!marcajesPorEmpleado[idEmpleado][fecha]) {
-                        marcajesPorEmpleado[idEmpleado][fecha] = {
-                            entrada_manana: null,
-                            salida_almuerzo: null,
-                            entrada_almuerzo: null,
-                            salida_final: null,
-                            registros: []
-                        };
                     }
                 }
             } else {

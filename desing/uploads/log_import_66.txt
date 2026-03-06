@@ -1,0 +1,7 @@
+Archivo ID: 66
+Insertados: 5513
+No encontrados (código no existe en empleados): 20
+Líneas inválidas: 0
+
+Códigos NO encontrados:
+- 10
