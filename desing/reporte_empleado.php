@@ -283,21 +283,50 @@ function clasificarMarcajes($regs) {
     ];
 }
 
+// ============ FUNCIÓN CORREGIDA PARA CALCULAR TARDANZAS ============
 function calcularTiempoTardanza($porDia) {
-    $segundosTarde = 0;
-    foreach ($porDia as $dia) {
-        if (!empty($dia['entrada_manana']) && strtotime($dia['entrada_manana']) > strtotime("08:00:00")) {
-            $segundosTarde += strtotime($dia['entrada_manana']) - strtotime("08:00:00");
+    $total_minutos_tarde = 0;
+    $total_segundos_tarde = 0;
+    
+    foreach ($porDia as $fecha => $dia) {
+        // Verificar tardanza en entrada de la mañana (después de las 8:00 AM)
+        if (!empty($dia['entrada_manana'])) {
+            $hora_entrada = strtotime($dia['entrada_manana']);
+            $hora_limite_entrada = strtotime("08:00:00");
+            
+            if ($hora_entrada > $hora_limite_entrada) {
+                $segundos_tarde = $hora_entrada - $hora_limite_entrada;
+                $total_segundos_tarde += $segundos_tarde;
+                $minutos_tarde = floor($segundos_tarde / 60);
+                $total_minutos_tarde += $minutos_tarde;
+            }
         }
-        if (!empty($dia['entrada_almuerzo']) && strtotime($dia['entrada_almuerzo']) > strtotime("14:00:00")) {
-            $segundosTarde += strtotime($dia['entrada_almuerzo']) - strtotime("14:00:00");
+        
+        // Verificar tardanza en entrada de la tarde (después de las 2:00 PM)
+        if (!empty($dia['entrada_almuerzo'])) {
+            $hora_entrada_tarde = strtotime($dia['entrada_almuerzo']);
+            $hora_limite_entrada_tarde = strtotime("14:00:00");
+            
+            if ($hora_entrada_tarde > $hora_limite_entrada_tarde) {
+                $segundos_tarde = $hora_entrada_tarde - $hora_limite_entrada_tarde;
+                $total_segundos_tarde += $segundos_tarde;
+                $minutos_tarde = floor($segundos_tarde / 60);
+                $total_minutos_tarde += $minutos_tarde;
+            }
         }
     }
-    $horas = floor($segundosTarde / 3600);
-    $minutos = floor(($segundosTarde % 3600) / 60);
-    $segundos = $segundosTarde % 60;
+    
+    // Convertir segundos totales a formato HH:MM:SS
+    $horas = floor($total_segundos_tarde / 3600);
+    $minutos = floor(($total_segundos_tarde % 3600) / 60);
+    $segundos = $total_segundos_tarde % 60;
+    
+    // Para debugging - puedes eliminar esto después
+    error_log("Total segundos tarde: $total_segundos_tarde, Horas: $horas, Minutos: $minutos, Segundos: $segundos");
+    
     return sprintf("%02d:%02d:%02d", $horas, $minutos, $segundos);
 }
+// ============ FIN DE FUNCIÓN CORREGIDA ============
 
 function prepararDatosGraficas($porDia) {
     $labels = [];
@@ -1798,3 +1827,5 @@ $periodoTexto = $fecha_inicio_corta . " al " . $fecha_fin_corta;
 </body>
 
 </html>
+
+

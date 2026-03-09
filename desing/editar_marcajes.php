@@ -211,6 +211,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $nuevo_id = $conexion->insert_id;
             
+            // Insertar en historial para que aparezca el lápiz
+            $historial_sql = "INSERT INTO historial_marcajes (id_registro, id_empleado, fecha, hora_anterior, hora_nueva, usuario) 
+                             VALUES (?, ?, ?, ?, ?, ?)";
+            $historial_stmt = $conexion->prepare($historial_sql);
+            $usuario = $_SESSION['usuario'] ?? 'sistema';
+            $hora_anterior = '00:00:00'; // No hay hora anterior porque es nuevo
+            $historial_stmt->bind_param("iissss", 
+                $nuevo_id, 
+                $id_empleado, 
+                $fecha, 
+                $hora_anterior, 
+                $hora_completa, 
+                $usuario
+            );
+            $historial_stmt->execute();
+            
             echo json_encode([
                 'success' => true, 
                 'message' => 'Marcaje agregado correctamente',
@@ -2135,10 +2151,10 @@ if (!empty($ids)) {
                 marcarCambios();
                 cerrarModalAgregarMarcaje();
                 
-                // Agregar al historial de cambios para que tenga el lápiz
+                // Agregar el nuevo ID al historial de cambios para que tenga el lápiz
                 historialCambios[data.id_registro] = true;
                 
-                // ACTUALIZACIÓN INMEDIATA: Agregar el nuevo marcaje a los datos locales
+                // Actualizar el objeto marcajesPorEmpleado con el nuevo registro
                 const nuevoRegistro = {
                     id_registro: data.id_registro,
                     id_empleado: parseInt(idEmpleado),
@@ -2146,7 +2162,6 @@ if (!empty($ids)) {
                     hora_only: hora + ':00'
                 };
                 
-                // Actualizar el objeto marcajesPorEmpleado
                 if (!marcajesPorEmpleado[idEmpleado][fecha]) {
                     marcajesPorEmpleado[idEmpleado][fecha] = {
                         entrada_manana: null,
@@ -2157,7 +2172,7 @@ if (!empty($ids)) {
                     };
                 }
                 
-                // Determinar el tipo de marcaje y asignarlo
+                // Determinar el tipo de marcaje según la hora
                 const horaDate = new Date('1970-01-01T' + nuevoRegistro.hora_only);
                 if (horaDate >= new Date('1970-01-01T06:00') && horaDate <= new Date('1970-01-01T10:00')) {
                     if (!marcajesPorEmpleado[idEmpleado][fecha].entrada_manana) {
@@ -2381,3 +2396,4 @@ if (!empty($ids)) {
 </script>
 </body>
 </html>
+
